@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lumyx Painel</string>
+    <string name="app_subtitle">Janela flutuante arrastável sobre qualquer app</string>
+
+    <!-- Status -->
+    <string name="status_closed">● PAINEL FECHADO</string>
+    <string name="status_open">● JANELA FLUTUANTE ABERTA</string>
+    <string name="status_hidden">● ESCONDIDA NA BOLINHA</string>
+
+    <!-- Permissão -->
+    <string name="perm_card_title">Permissão de Sobreposição</string>
+    <string name="perm_granted">Permissão ativa — pronto para sobrepor outros apps</string>
+    <string name="perm_missing">Necessário permitir sobreposição para exibir a janela flutuante</string>
+    <string name="btn_grant_permission">Permitir Sobreposição</string>
+
+    <!-- Controles Principais -->
+    <string name="controls_card_title">Controle da Janela Flutuante</string>
+    <string name="btn_open_window">Abrir Janela Flutuante</string>
+    <string name="btn_hide_window">Esconder Janela (Bolinha)</string>
+    <string name="btn_show_window">Mostrar Janela Novamente</string>
+    <string name="btn_center_window">Centralizar Posição</string>
+    <string name="btn_close_window">Fechar Janela Flutuante</string>
+
+    <!-- Guia -->
+    <string name="guide_card_title">Como Funciona</string>
+    <string name="guide_step_1">1. Toque em Abrir Janela Flutuante para exibir o painel na tela.</string>
+    <string name="guide_step_2">2. Arraste a janela livremente por qualquer área do painel.</string>
+    <string name="guide_step_3">3. Toque em Esconder para recolher na bolinha flutuante (também arrastável).</string>
+    <string name="guide_step_4">4. Toque na bolinha para a janela aparecer novamente, ou em Fechar para encerrar.</string>
+
+    <!-- Painel Flutuante -->
+    <string name="panel_title">LUMYX PAINEL</string>
+    <string name="panel_drag_hint">Arraste para mover</string>
+    <string name="panel_opacity_label">Opacidade da janela</string>
+    <string name="panel_bubble_size_label">Tamanho da bolinha</string>
+    <string name="panel_snap_edge">Imã nas bordas (bolinha)</string>
+    <string name="panel_compact_mode">Modo compacto</string>
+    <string name="panel_action_hide">Esconder</string>
+    <string name="panel_action_close">Fechar</string>
+
+    <!-- Notificação -->
+    <string name="notif_channel_name">Serviço Lumyx Painel</string>
+    <string name="notif_title">Lumyx Painel Ativo</string>
+    <string name="notif_body_expanded">Janela flutuante aberta • Tudo arrastável</string>
+    <string name="notif_body_hidden">Janela escondida • Toque na bolinha para reaparecer</string>
+    <string name="notif_action_hide">Esconder</string>
+    <string name="notif_action_show">Mostrar</string>
+    <string name="notif_action_close">Fechar</string>
+</resources>

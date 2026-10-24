@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Violet Diamond -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M54,24L84,54L54,84L24,54Z" />
+    <!-- Cyan Ring -->
+    <path
+        android:fillColor="#22D3EE"
+        android:pathData="M54,32L76,54L54,76L32,54ZM54,38L38,54L54,70L70,54Z" />
+    <!-- Bright Center Core -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,43L65,54L54,65L43,54Z" />
+</vector>

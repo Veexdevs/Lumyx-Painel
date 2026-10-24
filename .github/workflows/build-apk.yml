@@ -1,0 +1,82 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Gerar Lumyx Painel APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v6
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Gradle 8.7
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.7'
+
+      - name: Gerar Keystore de assinatura do APK
+        run: |
+          keytool -genkeypair -v \
+            -keystore "${RUNNER_TEMP}/lumyx-release.jks" \
+            -storetype PKCS12 \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -alias lumyx \
+            -storepass lumyx123456 \
+            -keypass lumyx123456 \
+            -dname "CN=Lumyx Painel, OU=Mobile, O=Veexdevs, L=Sao Paulo, ST=SP, C=BR"
+
+      - name: Compilar e Verificar APK Assinado
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/lumyx-release.jks
+          KEYSTORE_PASSWORD: lumyx123456
+          KEY_ALIAS: lumyx
+          KEY_PASSWORD: lumyx123456
+        run: |
+          gradle assembleRelease assembleDebug --no-daemon --stacktrace
+          mkdir -p apk-output
+          cp app/build/outputs/apk/release/app-release.apk apk-output/Lumyx-Painel.apk
+          APKSIGNER=$(ls -1 "${ANDROID_HOME}"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "${APKSIGNER}" verify --verbose apk-output/Lumyx-Painel.apk
+          ls -lh apk-output/
+
+      - name: Publicar APK nos Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Lumyx-Painel-APK
+          path: apk-output/Lumyx-Painel.apk
+          if-no-files-found: error
+
+      - name: Publicar APK em Releases (branch main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v1.0.0
+          name: Lumyx Painel APK
+          body: |
+            ## Lumyx Painel - APK Pronto para Instalar
+            - **Janela flutuante arrastável** sobre qualquer aplicativo
+            - **Abrir e fechar** a janela flutuante pelo app, pelos botões do painel (`✕` / `Fechar`) ou pela notificação
+            - **Botão Esconder** (`—` / `Esconder`) que transforma a janela em uma **bolinha flutuante arrastável**
+            - **Toque na bolinha** para a janela flutuante **aparecer novamente**
+          files: apk-output/Lumyx-Painel.apk
+          prerelease: false

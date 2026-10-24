@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outer diamond frame -->
+    <path
+        android:fillColor="#22D3EE"
+        android:pathData="M12,2L21,12L12,22L3,12L12,2ZM12,5.2L6.2,12L12,18.8L17.8,12L12,5.2Z" />
+    <!-- Inner glowing core -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,7.5L16,12L12,16.5L8,12L12,7.5Z" />
+</vector>
