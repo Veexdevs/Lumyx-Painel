@@ -7,14 +7,15 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ScrollView
 import android.widget.SeekBar
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
  * Container arrastável para sobreposição (overlay).
- * Permite arrastar tanto por áreas vazias/cabeçalho quanto iniciando o gesto sobre botões,
- * sem impedir cliques normais em botões/switches nem o deslize de SeekBars.
+ * Permite arrastar por áreas vazias, cabeçalho e até iniciando o gesto sobre botões,
+ * preservando cliques normais, deslize de SeekBars e rolagem vertical quando houver muitos itens.
  */
 class DraggableOverlayLayout @JvmOverloads constructor(
     context: Context,
@@ -30,7 +31,7 @@ class DraggableOverlayLayout @JvmOverloads constructor(
     private var startX = 0
     private var startY = 0
     private var isDragging = false
-    private var ignoringSliderGesture = false
+    private var delegatingToChildGesture = false
 
     var positionProvider: (() -> Pair<Int, Int>)? = null
     var onDragMove: ((newX: Int, newY: Int) -> Unit)? = null
@@ -39,7 +40,7 @@ class DraggableOverlayLayout @JvmOverloads constructor(
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                ignoringSliderGesture = isTouchInsideSeekBar(this, ev.rawX, ev.rawY)
+                delegatingToChildGesture = isTouchInsideInteractiveScrollOrSlider(this, ev.rawX, ev.rawY)
                 downRawX = ev.rawX
                 downRawY = ev.rawY
                 val currentPos = positionProvider?.invoke() ?: (0 to 0)
@@ -50,7 +51,7 @@ class DraggableOverlayLayout @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (ignoringSliderGesture) return false
+                if (delegatingToChildGesture) return false
                 val dx = ev.rawX - downRawX
                 val dy = ev.rawY - downRawY
                 if (hypot(dx, dy) > touchSlop) {
@@ -63,7 +64,7 @@ class DraggableOverlayLayout @JvmOverloads constructor(
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isDragging = false
-                ignoringSliderGesture = false
+                delegatingToChildGesture = false
                 return false
             }
         }
@@ -98,7 +99,7 @@ class DraggableOverlayLayout @JvmOverloads constructor(
                 } else if (isClickable) {
                     performClick()
                 }
-                ignoringSliderGesture = false
+                delegatingToChildGesture = false
                 return true
             }
 
@@ -108,7 +109,7 @@ class DraggableOverlayLayout @JvmOverloads constructor(
                     val pos = positionProvider?.invoke() ?: (startX to startY)
                     onDragEnd?.invoke(pos.first, pos.second)
                 }
-                ignoringSliderGesture = false
+                delegatingToChildGesture = false
                 return true
             }
         }
@@ -119,24 +120,37 @@ class DraggableOverlayLayout @JvmOverloads constructor(
         return super.performClick()
     }
 
-    private fun isTouchInsideSeekBar(view: View, rawX: Float, rawY: Float): Boolean {
+    private fun isTouchInsideInteractiveScrollOrSlider(view: View, rawX: Float, rawY: Float): Boolean {
         if (view.visibility != View.VISIBLE) return false
+
         if (view is SeekBar) {
-            view.getLocationOnScreen(tmpLocation)
-            val pad = touchSlop
-            val left = tmpLocation[0] - pad
-            val top = tmpLocation[1] - pad
-            val right = tmpLocation[0] + view.width + pad
-            val bottom = tmpLocation[1] + view.height + pad
-            return rawX >= left && rawX <= right && rawY >= top && rawY <= bottom
+            if (isPointInsideView(view, rawX, rawY, touchSlop)) {
+                return true
+            }
         }
+
+        if (view is ScrollView && (view.canScrollVertically(1) || view.canScrollVertically(-1))) {
+            if (isPointInsideView(view, rawX, rawY, 0)) {
+                return true
+            }
+        }
+
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
-                if (isTouchInsideSeekBar(view.getChildAt(i), rawX, rawY)) {
+                if (isTouchInsideInteractiveScrollOrSlider(view.getChildAt(i), rawX, rawY)) {
                     return true
                 }
             }
         }
         return false
+    }
+
+    private fun isPointInsideView(view: View, rawX: Float, rawY: Float, pad: Int): Boolean {
+        view.getLocationOnScreen(tmpLocation)
+        val left = tmpLocation[0] - pad
+        val top = tmpLocation[1] - pad
+        val right = tmpLocation[0] + view.width + pad
+        val bottom = tmpLocation[1] + view.height + pad
+        return rawX >= left && rawX <= right && rawY >= top && rawY <= bottom
     }
 }
