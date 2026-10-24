@@ -1,23 +1,21 @@
-# Lumyx Painel
+# Redx Painel
 
-Aplicativo Android (APK) que cria uma **janela flutuante totalmente arrastável** sobre qualquer tela ou aplicativo.
+Aplicativo Android (APK) **Redx Painel** nas cores **Preto e Vermelho** com a logo **RX** e **janela flutuante totalmente arrastável**.
 
 ## Funcionalidades
 
-- **Abrir e Fechar a Janela Flutuante:** abra pelo aplicativo e feche quando quiser pelo botão **Fechar (`✕`)** na própria janela, pelo aplicativo ou pela notificação.
-- **Esconder e Aparecer Novamente:** toque em **Esconder (`—`)** na janela flutuante para recolhê-la em uma **bolinha flutuante**. Toque na bolinha a qualquer momento para a janela **aparecer novamente**.
-- **Tudo Arrastável:** tanto a **janela flutuante aberta** quanto a **bolinha escondida** podem ser arrastadas livremente para qualquer posição da tela.
-- **Extras Integrados no Painel:** ajuste de opacidade em tempo real, ajuste do tamanho da bolinha, modo compacto e opção de imã nas bordas.
+- **Interface Redx Painel (Preto e Vermelho):**
+  - **Permissão:** `Permitir sobreposição de tela`
+  - **Utilizar Painel:** `Ativar Painel`, `Desativar Painel`, `Reiniciar posição` e `Resetar painel`
+  - **Informações:** `Versão 1.0.0`, `Link server discord`, `Link perfil tiktok` e `Link perfil youtube`
+- **Janela Flutuante Arrastável:**
+  - Pode **abrir e fechar** pelo app ou diretamente pelos botões **`✕`** / **`Fechar`** do painel.
+  - Botão **`—`** / **`Esconder`** transforma a janela na **bolinha flutuante RX** (também arrastável).
+  - **Toque na bolinha RX** para a janela flutuante **aparecer novamente**.
 
 ## Como Baixar o APK no GitHub
 
 1. Acesse a aba **Actions** deste repositório.
 2. Clique no workflow **Build APK** (execução mais recente com ícone verde).
-3. Role até a seção **Artifacts** e baixe **Lumyx-Painel-APK** (extraia o `.zip` para obter o `Lumyx-Painel.apk`).
-4. *(Após fazer merge na branch `main`)* O arquivo `Lumyx-Painel.apk` também fica disponível para download direto na aba **Releases**.
-
-## Como Usar no Android
-
-1. Instale o `Lumyx-Painel.apk` no seu celular Android (Android 7.0+).
-2. Abra o **Lumyx Painel** e conceda a permissão **Sobrepor a outros apps**.
-3. Toque em **Abrir Janela Flutuante**.
+3. Em **Artifacts**, baixe **`Redx-Painel-APK`** (extraia o `.zip` para obter o `Redx-Painel.apk`).
+4. *(Após fazer merge na branch `main`)* O arquivo `Redx-Painel.apk` também é publicado diretamente na aba **Releases**.

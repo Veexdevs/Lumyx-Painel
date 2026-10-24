@@ -8,13 +8,13 @@
 
     <LinearLayout
         android:id="@+id/panelCard"
-        android:layout_width="284dp"
+        android:layout_width="288dp"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_floating_panel"
-        android:elevation="10dp"
+        android:elevation="12dp"
         android:orientation="vertical">
 
-        <!-- Draggable Header Bar -->
+        <!-- Cabeçalho Arrastável Redx Painel -->
         <LinearLayout
             android:id="@+id/headerBar"
             android:layout_width="match_parent"
@@ -28,10 +28,11 @@
             android:paddingBottom="10dp">
 
             <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:contentDescription="@string/app_name"
-                android:src="@drawable/ic_lumyx_logo" />
+                android:scaleType="fitCenter"
+                android:src="@drawable/logo_redx" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -40,20 +41,34 @@
                 android:layout_weight="1"
                 android:orientation="vertical">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:letterSpacing="0.04"
-                    android:text="@string/panel_title"
-                    android:textColor="@color/text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/brand_red"
+                        android:textColor="@color/redx_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/brand_white"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/panel_drag_hint"
-                    android:textColor="@color/lumyx_accent"
+                    android:textColor="@color/redx_accent"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -64,7 +79,7 @@
                 android:contentDescription="@string/panel_drag_hint"
                 android:src="@drawable/ic_drag_indicator" />
 
-            <!-- Header Hide Button -->
+            <!-- Botão Esconder no Cabeçalho -->
             <ImageButton
                 android:id="@+id/btnHeaderHide"
                 android:layout_width="32dp"
@@ -76,7 +91,7 @@
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_minimize" />
 
-            <!-- Header Close Button -->
+            <!-- Botão Fechar no Cabeçalho -->
             <ImageButton
                 android:id="@+id/btnHeaderClose"
                 android:layout_width="32dp"
@@ -88,7 +103,7 @@
                 android:src="@drawable/ic_close" />
         </LinearLayout>
 
-        <!-- Body Section -->
+        <!-- Corpo do Painel -->
         <LinearLayout
             android:id="@+id/panelBody"
             android:layout_width="match_parent"
@@ -99,11 +114,11 @@
             android:paddingEnd="14dp"
             android:paddingBottom="14dp">
 
-            <!-- Status & Timer Row -->
+            <!-- Status e Tempo Ativo -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp"
+                android:layout_marginBottom="8dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -112,8 +127,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="● Painel ativo • Arrastável"
-                    android:textColor="@color/lumyx_success"
+                    android:text="@string/panel_status_active"
+                    android:textColor="@color/redx_accent"
                     android:textSize="11sp"
                     android:textStyle="bold" />
 
@@ -131,14 +146,74 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
-            <!-- Collapsible Settings Container -->
+            <!-- Container de Opções (recolhe no Modo Compacto) -->
             <LinearLayout
                 android:id="@+id/settingsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- Opacity Control -->
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchAimAssist"
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:checked="false"
+                    android:text="@string/panel_aim_assist"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    app:thumbTint="@color/redx_primary"
+                    app:trackTint="@color/stroke_subtle" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchFpsBoost"
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:layout_marginBottom="4dp"
+                    android:checked="false"
+                    android:text="@string/panel_fps_boost"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    app:thumbTint="@color/redx_primary"
+                    app:trackTint="@color/stroke_subtle" />
+
+                <!-- Sensibilidade Redx -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/panel_sensi_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/tvSensiValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="145"
+                        android:textColor="@color/redx_primary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekSensitivity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="6dp"
+                    android:max="200"
+                    android:progress="145"
+                    android:progressBackgroundTint="@color/stroke_subtle"
+                    android:progressTint="@color/redx_primary"
+                    android:thumbTint="@color/redx_accent" />
+
+                <!-- Opacidade da Janela -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -158,7 +233,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="95%"
-                        android:textColor="@color/lumyx_accent"
+                        android:textColor="@color/redx_primary"
                         android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -168,14 +243,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="6dp"
                     android:max="65"
                     android:progress="60"
                     android:progressBackgroundTint="@color/stroke_subtle"
-                    android:progressTint="@color/lumyx_primary"
-                    android:thumbTint="@color/lumyx_accent" />
+                    android:progressTint="@color/redx_primary"
+                    android:thumbTint="@color/redx_accent" />
 
-                <!-- Bubble Size Control -->
+                <!-- Tamanho da Bolinha -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -195,7 +270,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="58dp"
-                        android:textColor="@color/lumyx_accent"
+                        android:textColor="@color/redx_primary"
                         android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
@@ -205,35 +280,38 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp"
+                    android:layout_marginBottom="4dp"
                     android:max="32"
                     android:progress="12"
                     android:progressBackgroundTint="@color/stroke_subtle"
-                    android:progressTint="@color/lumyx_primary"
-                    android:thumbTint="@color/lumyx_accent" />
+                    android:progressTint="@color/redx_primary"
+                    android:thumbTint="@color/redx_accent" />
 
-                <!-- Snap to Edge Toggle -->
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSnapEdge"
                     android:layout_width="match_parent"
-                    android:layout_height="38dp"
+                    android:layout_height="36dp"
                     android:checked="false"
                     android:text="@string/panel_snap_edge"
-                    android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    app:thumbTint="@color/redx_primary"
+                    app:trackTint="@color/stroke_subtle" />
             </LinearLayout>
 
-            <!-- Compact Mode Toggle (Always visible so user can expand/collapse anytime) -->
+            <!-- Modo Compacto (sempre visível) -->
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchCompact"
                 android:layout_width="match_parent"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:checked="false"
                 android:text="@string/panel_compact_mode"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp" />
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                app:thumbTint="@color/redx_primary"
+                app:trackTint="@color/stroke_subtle" />
 
-            <!-- Primary Action Buttons Row: Esconder & Fechar -->
+            <!-- Botões Esconder & Fechar -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -255,8 +333,8 @@
                     android:textColor="@color/white"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    app:backgroundTint="@color/lumyx_primary"
-                    app:cornerRadius="12dp"
+                    app:backgroundTint="@color/redx_primary"
+                    app:cornerRadius="999dp"
                     app:icon="@drawable/ic_visibility_off"
                     app:iconGravity="textStart"
                     app:iconPadding="6dp"
@@ -278,13 +356,15 @@
                     android:textColor="@color/white"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    app:backgroundTint="@color/lumyx_danger"
-                    app:cornerRadius="12dp"
+                    app:backgroundTint="#260609"
+                    app:cornerRadius="999dp"
                     app:icon="@drawable/ic_close"
                     app:iconGravity="textStart"
                     app:iconPadding="6dp"
                     app:iconSize="16dp"
-                    app:iconTint="@color/white" />
+                    app:iconTint="@color/white"
+                    app:strokeColor="@color/redx_primary_dark"
+                    app:strokeWidth="1dp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

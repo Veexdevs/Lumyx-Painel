@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    name: Gerar Lumyx Painel APK
+    name: Gerar Redx Painel APK
     runs-on: ubuntu-latest
 
     steps:
@@ -35,7 +35,7 @@ jobs:
       - name: Gerar Keystore de assinatura do APK
         run: |
           keytool -genkeypair -v \
-            -keystore "${RUNNER_TEMP}/lumyx-release.jks" \
+            -keystore "${RUNNER_TEMP}/redx-release.jks" \
             -storetype PKCS12 \
             -keyalg RSA \
             -keysize 2048 \
@@ -43,40 +43,41 @@ jobs:
             -alias lumyx \
             -storepass lumyx123456 \
             -keypass lumyx123456 \
-            -dname "CN=Lumyx Painel, OU=Mobile, O=Veexdevs, L=Sao Paulo, ST=SP, C=BR"
+            -dname "CN=Redx Painel, OU=Mobile, O=Veexdevs, L=Sao Paulo, ST=SP, C=BR"
 
       - name: Compilar e Verificar APK Assinado
         env:
-          KEYSTORE_PATH: ${{ runner.temp }}/lumyx-release.jks
+          KEYSTORE_PATH: ${{ runner.temp }}/redx-release.jks
           KEYSTORE_PASSWORD: lumyx123456
           KEY_ALIAS: lumyx
           KEY_PASSWORD: lumyx123456
         run: |
           gradle assembleRelease assembleDebug --no-daemon --stacktrace
           mkdir -p apk-output
-          cp app/build/outputs/apk/release/app-release.apk apk-output/Lumyx-Painel.apk
+          cp app/build/outputs/apk/release/app-release.apk apk-output/Redx-Painel.apk
           APKSIGNER=$(ls -1 "${ANDROID_HOME}"/build-tools/*/apksigner | sort -V | tail -n 1)
-          "${APKSIGNER}" verify --verbose apk-output/Lumyx-Painel.apk
+          "${APKSIGNER}" verify --verbose apk-output/Redx-Painel.apk
           ls -lh apk-output/
 
       - name: Publicar APK nos Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Lumyx-Painel-APK
-          path: apk-output/Lumyx-Painel.apk
+          name: Redx-Painel-APK
+          path: apk-output/Redx-Painel.apk
           if-no-files-found: error
 
       - name: Publicar APK em Releases (branch main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v1.0.0
-          name: Lumyx Painel APK
+          tag_name: v1.1.0
+          name: Redx Painel APK
           body: |
-            ## Lumyx Painel - APK Pronto para Instalar
+            ## Redx Painel - APK Pronto para Instalar
+            - Visual **Preto e Vermelho** com a nova logo **RX**
             - **Janela flutuante arrastável** sobre qualquer aplicativo
-            - **Abrir e fechar** a janela flutuante pelo app, pelos botões do painel (`✕` / `Fechar`) ou pela notificação
-            - **Botão Esconder** (`—` / `Esconder`) que transforma a janela em uma **bolinha flutuante arrastável**
-            - **Toque na bolinha** para a janela flutuante **aparecer novamente**
-          files: apk-output/Lumyx-Painel.apk
+            - **Abrir e fechar** a janela pelo app (`Ativar Painel` / `Desativar Painel`), pelo painel (`✕` / `Fechar`) ou pela notificação
+            - **Botão Esconder** (`—` / `Esconder`) que recolhe a janela na **bolinha flutuante RX** (também arrastável)
+            - **Toque na bolinha RX** para a janela flutuante **aparecer novamente**
+          files: apk-output/Redx-Painel.apk
           prerelease: false
