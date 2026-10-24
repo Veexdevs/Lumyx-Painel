@@ -4,23 +4,23 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:clickable="true"
-    android:contentDescription="@string/bubble_show_desc"
+    android:contentDescription="@string/bubble_toggle_desc"
     android:focusable="false"
     android:padding="4dp">
 
     <FrameLayout
         android:id="@+id/bubbleContainer"
-        android:layout_width="58dp"
-        android:layout_height="58dp"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
         android:background="@drawable/bg_floating_bubble"
         android:clickable="false"
-        android:elevation="12dp"
+        android:elevation="14dp"
         android:focusable="false">
 
         <ImageView
             android:id="@+id/ivBubbleIcon"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_gravity="center"
             android:clickable="false"
             android:focusable="false"
@@ -29,6 +29,7 @@
             android:src="@drawable/logo_redx" />
 
         <View
+            android:id="@+id/viewBubbleDot"
             android:layout_width="12dp"
             android:layout_height="12dp"
             android:layout_gravity="top|end"

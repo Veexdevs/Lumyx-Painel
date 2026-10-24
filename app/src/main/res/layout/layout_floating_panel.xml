@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.veexdevs.lumyxpainel.DraggableOverlayLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/panelRoot"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
@@ -8,28 +7,28 @@
 
     <LinearLayout
         android:id="@+id/panelCard"
-        android:layout_width="288dp"
+        android:layout_width="336dp"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_floating_panel"
         android:elevation="12dp"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="16dp">
 
-        <!-- Cabeçalho Arrastável Redx Painel -->
+        <!-- Cabeçalho no estilo da imagem: Logo RX + Redx Painel • Hack FF / Versão 1.0.0 + [—] [✕] -->
         <LinearLayout
             android:id="@+id/headerBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_floating_header"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="10dp"
-            android:paddingBottom="10dp">
+            android:orientation="horizontal">
 
             <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:id="@+id/ivPanelLogo"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
                 android:contentDescription="@string/app_name"
                 android:scaleType="fitCenter"
                 android:src="@drawable/logo_redx" />
@@ -41,331 +40,683 @@
                 android:layout_weight="1"
                 android:orientation="vertical">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/brand_red"
-                        android:textColor="@color/redx_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="@string/brand_white"
-                        android:textColor="@color/white"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
+                    android:ellipsize="end"
+                    android:fontFamily="monospace"
+                    android:maxLines="1"
+                    android:text="@string/panel_header_title"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/panel_drag_hint"
-                    android:textColor="@color/redx_accent"
-                    android:textSize="10sp" />
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="monospace"
+                    android:text="@string/panel_header_version"
+                    android:textColor="@color/white"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_marginEnd="6dp"
-                android:contentDescription="@string/panel_drag_hint"
-                android:src="@drawable/ic_drag_indicator" />
-
-            <!-- Botão Esconder no Cabeçalho -->
+            <!-- Botão Minimizar / Esconder (—) -->
             <ImageButton
                 android:id="@+id/btnHeaderHide"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:layout_marginEnd="6dp"
-                android:background="@drawable/bg_header_icon_btn"
+                android:background="@drawable/bg_header_plain_ripple"
                 android:contentDescription="@string/panel_action_hide"
-                android:padding="6dp"
+                android:padding="5dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_minimize" />
 
-            <!-- Botão Fechar no Cabeçalho -->
+            <!-- Botão Fechar (✕) -->
             <ImageButton
                 android:id="@+id/btnHeaderClose"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:background="@drawable/bg_header_close_btn"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_header_plain_ripple"
                 android:contentDescription="@string/panel_action_close"
-                android:padding="6dp"
+                android:padding="5dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_close" />
         </LinearLayout>
 
-        <!-- Corpo do Painel -->
+        <!-- Corpo em 2 Colunas: Aba Lateral Esquerda + 3 Barras Vermelhas na Direita -->
         <LinearLayout
-            android:id="@+id/panelBody"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingStart="14dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="14dp">
+            android:layout_marginTop="14dp"
+            android:orientation="horizontal">
 
-            <!-- Status e Tempo Ativo -->
+            <!-- Coluna Esquerda: Botões de Categoria no Estilo [(i) Exemplo] -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="88dp"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/tvOverlayInfo"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/panel_status_active"
-                    android:textColor="@color/redx_accent"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvSessionTimer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_status_pill"
-                    android:paddingStart="8dp"
-                    android:paddingTop="2dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="2dp"
-                    android:text="00:00"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- Container de Opções (recolhe no Modo Compacto) -->
-            <LinearLayout
-                android:id="@+id/settingsContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
                 android:orientation="vertical">
 
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchAimAssist"
-                    android:layout_width="match_parent"
-                    android:layout_height="36dp"
-                    android:checked="false"
-                    android:text="@string/panel_aim_assist"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    app:thumbTint="@color/redx_primary"
-                    app:trackTint="@color/stroke_subtle" />
-
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchFpsBoost"
-                    android:layout_width="match_parent"
-                    android:layout_height="36dp"
-                    android:layout_marginBottom="4dp"
-                    android:checked="false"
-                    android:text="@string/panel_fps_boost"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    app:thumbTint="@color/redx_primary"
-                    app:trackTint="@color/stroke_subtle" />
-
-                <!-- Sensibilidade Redx -->
                 <LinearLayout
+                    android:id="@+id/tabAim"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="30dp"
+                    android:background="@drawable/bg_tab_active"
+                    android:clickable="true"
+                    android:focusable="false"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="6dp">
+
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_aim_crosshair" />
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/panel_sensi_label"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/tvSensiValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="145"
-                        android:textColor="@color/redx_primary"
-                        android:textSize="12sp"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="monospace"
+                        android:text="@string/tab_aim"
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <SeekBar
-                    android:id="@+id/seekSensitivity"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp"
-                    android:max="200"
-                    android:progress="145"
-                    android:progressBackgroundTint="@color/stroke_subtle"
-                    android:progressTint="@color/redx_primary"
-                    android:thumbTint="@color/redx_accent" />
-
-                <!-- Opacidade da Janela -->
                 <LinearLayout
+                    android:id="@+id/tabSensi"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_tab_inactive"
+                    android:clickable="true"
+                    android:focusable="false"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="6dp">
+
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_sliders" />
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/panel_opacity_label"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/tvOpacityValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="95%"
-                        android:textColor="@color/redx_primary"
-                        android:textSize="12sp"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="monospace"
+                        android:text="@string/tab_sensi"
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <SeekBar
-                    android:id="@+id/seekOpacity"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="6dp"
-                    android:max="65"
-                    android:progress="60"
-                    android:progressBackgroundTint="@color/stroke_subtle"
-                    android:progressTint="@color/redx_primary"
-                    android:thumbTint="@color/redx_accent" />
-
-                <!-- Tamanho da Bolinha -->
                 <LinearLayout
+                    android:id="@+id/tabScreen"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_tab_inactive"
+                    android:clickable="true"
+                    android:focusable="false"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="6dp">
+
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_perm_overlay" />
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/panel_bubble_size_label"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/tvBubbleSizeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="58dp"
-                        android:textColor="@color/redx_primary"
-                        android:textSize="12sp"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="monospace"
+                        android:text="@string/tab_screen"
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <SeekBar
-                    android:id="@+id/seekBubbleSize"
+                <LinearLayout
+                    android:id="@+id/tabInfo"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginBottom="4dp"
-                    android:max="32"
-                    android:progress="12"
-                    android:progressBackgroundTint="@color/stroke_subtle"
-                    android:progressTint="@color/redx_primary"
-                    android:thumbTint="@color/redx_accent" />
+                    android:layout_height="30dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_tab_inactive"
+                    android:clickable="true"
+                    android:focusable="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="6dp">
 
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switchSnapEdge"
-                    android:layout_width="match_parent"
-                    android:layout_height="36dp"
-                    android:checked="false"
-                    android:text="@string/panel_snap_edge"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    app:thumbTint="@color/redx_primary"
-                    app:trackTint="@color/stroke_subtle" />
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_info_circle" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="monospace"
+                        android:text="@string/tab_info"
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Modo Compacto (sempre visível) -->
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/switchCompact"
-                android:layout_width="match_parent"
-                android:layout_height="36dp"
-                android:checked="false"
-                android:text="@string/panel_compact_mode"
-                android:textColor="@color/white"
-                android:textSize="12sp"
-                app:thumbTint="@color/redx_primary"
-                app:trackTint="@color/stroke_subtle" />
-
-            <!-- Botões Esconder & Fechar -->
-            <LinearLayout
-                android:layout_width="match_parent"
+            <!-- Coluna Direita: 3 Barras Horizontais Vermelhas Empilhadas -->
+            <FrameLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
+                android:layout_weight="1">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnHideWindow"
-                    android:layout_width="0dp"
-                    android:layout_height="42dp"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/panel_action_hide"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="@color/redx_primary"
-                    app:cornerRadius="999dp"
-                    app:icon="@drawable/ic_visibility_off"
-                    app:iconGravity="textStart"
-                    app:iconPadding="6dp"
-                    app:iconSize="16dp"
-                    app:iconTint="@color/white" />
+                <!-- Página 1: Mira (3 Barras Vermelhas) -->
+                <LinearLayout
+                    android:id="@+id/pageAim"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="visible">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnClosePanel"
-                    android:layout_width="0dp"
-                    android:layout_height="42dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/panel_action_close"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="#260609"
-                    app:cornerRadius="999dp"
-                    app:icon="@drawable/ic_close"
-                    app:iconGravity="textStart"
-                    app:iconPadding="6dp"
-                    app:iconSize="16dp"
-                    app:iconTint="@color/white"
-                    app:strokeColor="@color/redx_primary_dark"
-                    app:strokeWidth="1dp" />
-            </LinearLayout>
+                    <LinearLayout
+                        android:id="@+id/barAimAssist"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_aim_assist"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/badgeAimAssist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_state_badge_off"
+                            android:fontFamily="monospace"
+                            android:paddingStart="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="2dp"
+                            android:text="@string/state_off"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/barNoRecoil"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_no_recoil"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/badgeNoRecoil"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_state_badge_off"
+                            android:fontFamily="monospace"
+                            android:paddingStart="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="2dp"
+                            android:text="@string/state_off"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/barPrecision"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_precision"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/badgePrecision"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_state_badge_off"
+                            android:fontFamily="monospace"
+                            android:paddingStart="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="2dp"
+                            android:text="@string/state_off"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Página 2: Sensi (3 Barras Vermelhas) -->
+                <LinearLayout
+                    android:id="@+id/pageSensi"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_sensi_general"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/seekSensiGeneral"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="200"
+                            android:progress="165"
+                            android:progressBackgroundTint="#66000000"
+                            android:progressTint="@color/white"
+                            android:thumbTint="@color/white" />
+
+                        <TextView
+                            android:id="@+id/tvSensiGeneralVal"
+                            android:layout_width="28dp"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:gravity="end"
+                            android:text="165"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_sensi_reddot"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/seekSensiRedDot"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="200"
+                            android:progress="150"
+                            android:progressBackgroundTint="#66000000"
+                            android:progressTint="@color/white"
+                            android:thumbTint="@color/white" />
+
+                        <TextView
+                            android:id="@+id/tvSensiRedDotVal"
+                            android:layout_width="28dp"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:gravity="end"
+                            android:text="150"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/barFastTouch"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_fast_touch"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/badgeFastTouch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_state_badge_off"
+                            android:fontFamily="monospace"
+                            android:paddingStart="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="2dp"
+                            android:text="@string/state_off"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Página 3: Tela (3 Barras Vermelhas — Opacidade, Bolha RX, Imã) -->
+                <LinearLayout
+                    android:id="@+id/pageScreen"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_opacity"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/seekOpacity"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="65"
+                            android:progress="63"
+                            android:progressBackgroundTint="#66000000"
+                            android:progressTint="@color/white"
+                            android:thumbTint="@color/white" />
+
+                        <TextView
+                            android:id="@+id/tvOpacityValue"
+                            android:layout_width="30dp"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:gravity="end"
+                            android:text="98%"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_bubble_size"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/seekBubbleSize"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="32"
+                            android:progress="10"
+                            android:progressBackgroundTint="#66000000"
+                            android:progressTint="@color/white"
+                            android:thumbTint="@color/white" />
+
+                        <TextView
+                            android:id="@+id/tvBubbleSizeValue"
+                            android:layout_width="32dp"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:gravity="end"
+                            android:text="56dp"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/barSnapEdge"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_snap_edge"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/badgeSnapEdge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_state_badge_off"
+                            android:fontFamily="monospace"
+                            android:paddingStart="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="2dp"
+                            android:text="@string/state_off"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Página 4: Info (3 Barras Vermelhas) -->
+                <LinearLayout
+                    android:id="@+id/pageInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_active_time"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSessionTimer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_state_badge_off"
+                            android:fontFamily="monospace"
+                            android:paddingStart="7dp"
+                            android:paddingTop="2dp"
+                            android:paddingEnd="7dp"
+                            android:paddingBottom="2dp"
+                            android:text="00:00"
+                            android:textColor="@color/white"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/barCenterPanel"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_center_panel"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_chevron_right" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/barResetAll"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_red_bar"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="@string/opt_reset_all"
+                            android:textColor="@color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_refresh_pos" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
         </LinearLayout>
     </LinearLayout>
 </com.veexdevs.lumyxpainel.DraggableOverlayLayout>
