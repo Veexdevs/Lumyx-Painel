@@ -6,24 +6,37 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.Settings
+import android.text.TextUtils
+import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -36,7 +49,7 @@ import java.util.Locale
 import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.math.roundToInt
 
-class FloatingWindowService : Service() {
+class FloatingWindowService : Service(), ControlePainel {
 
     enum class OverlayState {
         CLOSED,
@@ -44,40 +57,48 @@ class FloatingWindowService : Service() {
         HIDDEN_BUBBLE
     }
 
+    override val context: Context
+        get() = this
+
     private lateinit var windowManager: WindowManager
     private lateinit var notificationManager: NotificationManager
 
     private var panelBinding: LayoutFloatingPanelBinding? = null
     private var bubbleBinding: LayoutFloatingBubbleBinding? = null
+    private var crosshairView: CrosshairOverlayView? = null
 
     private lateinit var panelParams: WindowManager.LayoutParams
     private lateinit var bubbleParams: WindowManager.LayoutParams
+    private lateinit var crosshairParams: WindowManager.LayoutParams
 
     private var isPanelAdded = false
     private var isBubbleAdded = false
+    private var isCrosshairAdded = false
 
-    private var aimAssistEnabled = false
-    private var noRecoilEnabled = false
-    private var precisionEnabled = false
-    private var fastTouchEnabled = false
+    private var abasPainel: List<AbaPainel> = emptyList()
+    private var selectedTabIndex = 0
+    private val tabViews = mutableListOf<LinearLayout>()
+    private val timerTextViews = mutableListOf<TextView>()
+
     private var snapBubbleToEdge = false
-
     private var panelAlpha = 0.98f
     private var bubbleSizeDp = 56
 
     private var snapAnimator: ValueAnimator? = null
     private var sessionStartElapsed = 0L
 
+    private val prefs by lazy {
+        getSharedPreferences("redx_painel_prefs", Context.MODE_PRIVATE)
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private val timerRunnable = object : Runnable {
         override fun run() {
             if (currentState != OverlayState.CLOSED) {
-                val elapsedSec = ((SystemClock.elapsedRealtime() - sessionStartElapsed) / 1000L)
-                    .coerceAtLeast(0L)
-                val minutes = elapsedSec / 60L
-                val seconds = elapsedSec % 60L
-                panelBinding?.tvSessionTimer?.text =
-                    String.format(Locale.US, "%02d:%02d", minutes, seconds)
+                val formatted = formatSessionTime()
+                for (tv in timerTextViews) {
+                    tv.text = formatted
+                }
                 mainHandler.postDelayed(this, 1000L)
             }
         }
@@ -89,6 +110,7 @@ class FloatingWindowService : Service() {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
         sessionStartElapsed = SystemClock.elapsedRealtime()
+        abasPainel = runCatching { PainelConfig.configurarPainel() }.getOrElse { emptyList() }
         initOverlayViews()
     }
 
@@ -136,7 +158,7 @@ class FloatingWindowService : Service() {
                     OverlayState.EXPANDED
                 }
                 ensureForeground(activeState)
-                centerAllOverlays()
+                centralizarPainel()
             }
 
             ACTION_RESET -> {
@@ -146,7 +168,7 @@ class FloatingWindowService : Service() {
                     OverlayState.EXPANDED
                 }
                 ensureForeground(activeState)
-                resetPanelDefaults()
+                resetarPainel()
             }
 
             else -> {
@@ -193,6 +215,188 @@ class FloatingWindowService : Service() {
         super.onDestroy()
     }
 
+    // =========================================================================
+    // Implementação do ControlePainel (usado dentro do PainelConfig.kt)
+    // =========================================================================
+
+    override fun aviso(mensagem: String) {
+        mainHandler.post {
+            Toast.makeText(this, mensagem, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun vibrar(duracaoMs: Long) {
+        runCatching {
+            val ms = duracaoMs.coerceIn(10L, 500L)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator.vibrate(
+                    VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.vibrate(ms)
+                }
+            }
+        }
+    }
+
+    override fun mudarOpacidadePainel(porcentagem: Int) {
+        val pct = porcentagem.coerceIn(35, 100)
+        panelAlpha = pct / 100f
+        panelBinding?.panelCard?.alpha = panelAlpha
+    }
+
+    override fun mudarTamanhoBolha(tamanhoDp: Int) {
+        bubbleSizeDp = tamanhoDp.coerceIn(44, 84)
+        applyBubbleSize(bubbleSizeDp)
+    }
+
+    override fun mudarImanBordas(ativo: Boolean) {
+        snapBubbleToEdge = ativo
+        if (ativo && isBubbleAdded) {
+            animateBubbleToNearestEdge(bubbleParams.x)
+        }
+    }
+
+    override fun mostrarMiraCentral(ativo: Boolean) {
+        val view = crosshairView ?: return
+        ensureBothOverlaysAttached()
+        view.visibility = if (ativo) View.VISIBLE else View.GONE
+    }
+
+    override fun mudarEstiloMira(estilo: Int) {
+        crosshairView?.crosshairStyle = estilo
+    }
+
+    override fun mudarTamanhoMira(tamanhoDp: Int) {
+        val clampedDp = tamanhoDp.coerceIn(8, 48)
+        crosshairView?.crosshairRadiusPx = clampedDp * resources.displayMetrics.density
+    }
+
+    override fun mudarCorMira(corHex: String) {
+        runCatching {
+            crosshairView?.crosshairColor = Color.parseColor(corHex)
+        }
+    }
+
+    override fun centralizarPainel() {
+        snapAnimator?.cancel()
+        val (defaultPanel, defaultBubble) = computeDefaultPositions()
+
+        bubbleParams.x = defaultBubble.first
+        bubbleParams.y = defaultBubble.second
+        if (isBubbleAdded) {
+            safeUpdateView(bubbleBinding?.root, bubbleParams)
+        }
+
+        panelParams.x = defaultPanel.first
+        panelParams.y = defaultPanel.second
+        if (isPanelAdded && currentState == OverlayState.EXPANDED) {
+            safeUpdateView(panelBinding?.root, panelParams)
+        }
+    }
+
+    override fun esconderPainel() {
+        hidePanelKeepBubble()
+    }
+
+    override fun fecharPainel() {
+        closeAllAndStop()
+    }
+
+    override fun resetarPainel() {
+        for (aba in abasPainel) {
+            for (item in aba.itens) {
+                when (item) {
+                    is ItemPainel.Toggle -> {
+                        if (item.ativo != item.padrao) {
+                            item.ativo = item.padrao
+                            safeExecute { item.aoMudar(this, item.ativo) }
+                        }
+                    }
+
+                    is ItemPainel.Check -> {
+                        if (item.marcado != item.padrao) {
+                            item.marcado = item.padrao
+                            safeExecute { item.aoMudar(this, item.marcado) }
+                        }
+                    }
+
+                    is ItemPainel.Slide -> {
+                        item.valorAtual = item.padrao
+                        safeExecute { item.aoMudar(this, item.valorAtual) }
+                    }
+
+                    is ItemPainel.Lista -> {
+                        item.indiceAtual = item.padrao
+                        if (item.opcoes.isNotEmpty()) {
+                            safeExecute {
+                                item.aoSelecionar(
+                                    this,
+                                    item.indiceAtual,
+                                    item.opcoes[item.indiceAtual]
+                                )
+                            }
+                        }
+                    }
+
+                    is ItemPainel.Botao, is ItemPainel.Info, is ItemPainel.TempoAtivo -> Unit
+                }
+            }
+        }
+
+        sessionStartElapsed = SystemClock.elapsedRealtime()
+        selectTab(0)
+        centralizarPainel()
+    }
+
+    override fun abrirLink(url: String) {
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        }.onFailure {
+            aviso("Não foi possível abrir o link")
+        }
+    }
+
+    override fun abrirApp(pacote: String) {
+        val launchIntent = packageManager.getLaunchIntentForPackage(pacote)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(launchIntent)
+        } else {
+            aviso("App não encontrado: $pacote")
+        }
+    }
+
+    override fun copiarTexto(texto: String) {
+        runCatching {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Redx Painel", texto))
+            aviso("Copiado!")
+        }
+    }
+
+    override fun salvarValor(chave: String, valor: String) {
+        prefs.edit().putString(chave, valor).apply()
+    }
+
+    override fun lerValor(chave: String, padrao: String): String {
+        return prefs.getString(chave, padrao) ?: padrao
+    }
+
+    // =========================================================================
+    // Construção Dinâmica do Painel a partir do PainelConfig.kt
+    // =========================================================================
+
     private fun initOverlayViews() {
         val themedContext = ContextThemeWrapper(this, R.style.Theme_LumyxPainel)
         val inflater = LayoutInflater.from(themedContext)
@@ -205,6 +409,19 @@ class FloatingWindowService : Service() {
         }
 
         val (defaultPanelPos, defaultBubblePos) = computeDefaultPositions()
+
+        crosshairParams = WindowManager.LayoutParams(
+            dpToPx(104),
+            dpToPx(104),
+            overlayType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.CENTER
+        }
+        crosshairView = CrosshairOverlayView(themedContext)
 
         panelParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -235,10 +452,12 @@ class FloatingWindowService : Service() {
         panelBinding = pBinding
         bubbleBinding = bBinding
 
+        pBinding.tvPanelHeaderTitle.text = PainelConfig.TITULO_PAINEL
+        pBinding.tvPanelHeaderSubtitle.text = PainelConfig.SUBTITULO_PAINEL
         pBinding.panelCard.alpha = panelAlpha
         applyBubbleSize(bubbleSizeDp)
 
-        // Arraste livre da janela flutuante inteira
+        // Arraste livre da janela flutuante
         pBinding.panelRoot.positionProvider = { panelParams.x to panelParams.y }
         pBinding.panelRoot.onDragMove = { rawTargetX, rawTargetY ->
             if (currentState == OverlayState.EXPANDED) {
@@ -250,101 +469,13 @@ class FloatingWindowService : Service() {
             }
         }
 
-        // Botão [—]: Esconde instantaneamente o painel mantendo a bolha RX visível
-        pBinding.btnHeaderHide.setOnClickListener {
-            hidePanelKeepBubble()
-        }
+        pBinding.btnHeaderHide.setOnClickListener { hidePanelKeepBubble() }
+        pBinding.btnHeaderClose.setOnClickListener { closeAllAndStop() }
 
-        // Botão [✕]: Fecha o painel e a bolha completamente
-        pBinding.btnHeaderClose.setOnClickListener {
-            closeAllAndStop()
-        }
+        buildDynamicTabs(themedContext, pBinding)
+        selectTab(0)
 
-        // Abas laterais (Mira, Sensi, Tela, Info)
-        pBinding.tabAim.setOnClickListener { selectTab(0) }
-        pBinding.tabSensi.setOnClickListener { selectTab(1) }
-        pBinding.tabScreen.setOnClickListener { selectTab(2) }
-        pBinding.tabInfo.setOnClickListener { selectTab(3) }
-
-        // Barras interativas da aba Mira
-        pBinding.barAimAssist.setOnClickListener {
-            aimAssistEnabled = !aimAssistEnabled
-            applyToggleBarState(pBinding.barAimAssist, pBinding.badgeAimAssist, aimAssistEnabled)
-        }
-        pBinding.barNoRecoil.setOnClickListener {
-            noRecoilEnabled = !noRecoilEnabled
-            applyToggleBarState(pBinding.barNoRecoil, pBinding.badgeNoRecoil, noRecoilEnabled)
-        }
-        pBinding.barPrecision.setOnClickListener {
-            precisionEnabled = !precisionEnabled
-            applyToggleBarState(pBinding.barPrecision, pBinding.badgePrecision, precisionEnabled)
-        }
-
-        // Barras interativas da aba Sensi
-        pBinding.seekSensiGeneral.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                pBinding.tvSensiGeneralVal.text = String.format(Locale.US, "%d", progress)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        })
-
-        pBinding.seekSensiRedDot.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                pBinding.tvSensiRedDotVal.text = String.format(Locale.US, "%d", progress)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        })
-
-        pBinding.barFastTouch.setOnClickListener {
-            fastTouchEnabled = !fastTouchEnabled
-            applyToggleBarState(pBinding.barFastTouch, pBinding.badgeFastTouch, fastTouchEnabled)
-        }
-
-        // Barras interativas da aba Tela (Opacidade, Tamanho da Bolha RX, Imã nas Bordas)
-        pBinding.seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val pct = (35 + progress).coerceIn(35, 100)
-                panelAlpha = pct / 100f
-                pBinding.tvOpacityValue.text = String.format(Locale.US, "%d%%", pct)
-                pBinding.panelCard.alpha = panelAlpha
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        })
-
-        pBinding.seekBubbleSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                bubbleSizeDp = (46 + progress).coerceIn(46, 78)
-                pBinding.tvBubbleSizeValue.text = String.format(Locale.US, "%ddp", bubbleSizeDp)
-                applyBubbleSize(bubbleSizeDp)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        })
-
-        pBinding.barSnapEdge.setOnClickListener {
-            snapBubbleToEdge = !snapBubbleToEdge
-            applyToggleBarState(pBinding.barSnapEdge, pBinding.badgeSnapEdge, snapBubbleToEdge)
-            if (snapBubbleToEdge && isBubbleAdded) {
-                animateBubbleToNearestEdge(bubbleParams.x)
-            }
-        }
-
-        // Barras de ação da aba Info
-        pBinding.barCenterPanel.setOnClickListener {
-            centerAllOverlays()
-        }
-        pBinding.barResetAll.setOnClickListener {
-            resetPanelDefaults()
-        }
-
-        // Bolha RX sempre visível: arrastável + toque alterna abrir/esconder instantaneamente
+        // Bolha RX sempre visível (arrastável + clique rápido para abrir/esconder)
         bBinding.bubbleRoot.positionProvider = { bubbleParams.x to bubbleParams.y }
         bBinding.bubbleRoot.onDragMove = { rawTargetX, rawTargetY ->
             snapAnimator?.cancel()
@@ -368,14 +499,399 @@ class FloatingWindowService : Service() {
         }
     }
 
-    /**
-     * Garante que o painel seja adicionado primeiro e a bolha RX por último,
-     * mantendo a bolha sempre visível e acima do painel (Z-order superior) para abrir/fechar rápido.
-     */
+    private fun buildDynamicTabs(themedContext: Context, pBinding: LayoutFloatingPanelBinding) {
+        pBinding.tabsContainer.removeAllViews()
+        tabViews.clear()
+
+        for ((index, aba) in abasPainel.withIndex()) {
+            val tabLayout = LinearLayout(themedContext).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = false
+                setPadding(dpToPx(7), 0, dpToPx(6), 0)
+                setBackgroundResource(
+                    if (index == selectedTabIndex) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive
+                )
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dpToPx(30)
+                ).apply {
+                    if (index > 0) topMargin = dpToPx(8)
+                }
+                setOnClickListener {
+                    selectTab(index)
+                }
+            }
+
+            val iconView = ImageView(themedContext).apply {
+                setImageResource(aba.icone.drawableRes)
+                layoutParams = LinearLayout.LayoutParams(dpToPx(15), dpToPx(15))
+            }
+
+            val titleView = TextView(themedContext).apply {
+                text = aba.nome
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginStart = dpToPx(6)
+                }
+            }
+
+            tabLayout.addView(iconView)
+            tabLayout.addView(titleView)
+            pBinding.tabsContainer.addView(tabLayout)
+            tabViews.add(tabLayout)
+        }
+    }
+
+    private fun selectTab(tabIndex: Int) {
+        val pBinding = panelBinding ?: return
+        if (abasPainel.isEmpty()) return
+
+        selectedTabIndex = tabIndex.coerceIn(0, abasPainel.lastIndex)
+        for (i in tabViews.indices) {
+            tabViews[i].setBackgroundResource(
+                if (i == selectedTabIndex) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive
+            )
+        }
+
+        renderTabItems(pBinding.root.context, pBinding.itemsContainer, abasPainel[selectedTabIndex])
+        pBinding.itemsScrollView.scrollTo(0, 0)
+    }
+
+    private fun renderTabItems(
+        ctx: Context,
+        container: LinearLayout,
+        aba: AbaPainel
+    ) {
+        container.removeAllViews()
+        timerTextViews.clear()
+
+        for ((idx, item) in aba.itens.withIndex()) {
+            val itemView = when (item) {
+                is ItemPainel.Botao -> createBotaoView(ctx, item)
+                is ItemPainel.Toggle -> createToggleView(ctx, item)
+                is ItemPainel.Check -> createCheckView(ctx, item)
+                is ItemPainel.Slide -> createSlideView(ctx, item)
+                is ItemPainel.Lista -> createListaView(ctx, item)
+                is ItemPainel.Info -> createInfoView(ctx, item.nome, item.valor, isTimer = false)
+                is ItemPainel.TempoAtivo -> createInfoView(ctx, item.nome, formatSessionTime(), isTimer = true)
+            }
+
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                if (idx > 0) topMargin = dpToPx(9)
+            }
+            container.addView(itemView, lp)
+        }
+    }
+
+    private fun createBotaoView(ctx: Context, item: ItemPainel.Botao): View {
+        val row = createBaseRedBar(ctx)
+        val label = createBarTitle(ctx, item.nome)
+        val badge = createBarBadge(ctx, item.textoDireita)
+
+        row.addView(label)
+        row.addView(badge)
+        row.setOnClickListener {
+            safeExecute { item.aoClicar(this) }
+        }
+        return row
+    }
+
+    private fun createToggleView(ctx: Context, item: ItemPainel.Toggle): View {
+        val row = createBaseRedBar(ctx)
+        val label = createBarTitle(ctx, item.nome)
+        val badge = createBarBadge(ctx, "")
+
+        fun syncVisual() {
+            row.setBackgroundResource(
+                if (item.ativo) R.drawable.bg_red_bar_active else R.drawable.bg_red_bar
+            )
+            badge.setBackgroundResource(
+                if (item.ativo) R.drawable.bg_state_badge_on else R.drawable.bg_state_badge_off
+            )
+            badge.text = if (item.ativo) "ON" else "OFF"
+            badge.setTextColor(
+                if (item.ativo) Color.rgb(0xD9, 0x06, 0x0E) else Color.WHITE
+            )
+        }
+        syncVisual()
+
+        row.addView(label)
+        row.addView(badge)
+        row.setOnClickListener {
+            item.ativo = !item.ativo
+            syncVisual()
+            safeExecute { item.aoMudar(this, item.ativo) }
+        }
+        return row
+    }
+
+    private fun createCheckView(ctx: Context, item: ItemPainel.Check): View {
+        val row = createBaseRedBar(ctx)
+        val label = createBarTitle(ctx, item.nome)
+        val badge = createBarBadge(ctx, "")
+
+        fun syncVisual() {
+            row.setBackgroundResource(
+                if (item.marcado) R.drawable.bg_red_bar_active else R.drawable.bg_red_bar
+            )
+            badge.setBackgroundResource(
+                if (item.marcado) R.drawable.bg_state_badge_on else R.drawable.bg_state_badge_off
+            )
+            badge.text = if (item.marcado) "[✓]" else "[ ]"
+            badge.setTextColor(
+                if (item.marcado) Color.rgb(0xD9, 0x06, 0x0E) else Color.WHITE
+            )
+        }
+        syncVisual()
+
+        row.addView(label)
+        row.addView(badge)
+        row.setOnClickListener {
+            item.marcado = !item.marcado
+            syncVisual()
+            safeExecute { item.aoMudar(this, item.marcado) }
+        }
+        return row
+    }
+
+    private fun createSlideView(ctx: Context, item: ItemPainel.Slide): View {
+        val row = createBaseRedBar(ctx)
+
+        val label = TextView(ctx).apply {
+            text = item.nome
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            maxLines = 1
+        }
+
+        val valueTv = TextView(ctx).apply {
+            text = "${item.valorAtual}${item.sufixo}"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            gravity = Gravity.END
+            minWidth = dpToPx(32)
+        }
+
+        val range = (item.max - item.min).coerceAtLeast(1)
+        val seekBar = SeekBar(ctx).apply {
+            max = range
+            progress = (item.valorAtual - item.min).coerceIn(0, range)
+            progressTintList = ColorStateList.valueOf(Color.WHITE)
+            thumbTintList = ColorStateList.valueOf(Color.WHITE)
+            progressBackgroundTintList = ColorStateList.valueOf(Color.argb(0x66, 0, 0, 0))
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val currentVal = (item.min + progress).coerceIn(item.min, item.max)
+                    item.valorAtual = currentVal
+                    valueTv.text = "${currentVal}${item.sufixo}"
+                    if (fromUser) {
+                        safeExecute { item.aoMudar(this@FloatingWindowService, currentVal) }
+                    }
+                }
+
+                override fun onStartTrackingTouch(sb: SeekBar?) = Unit
+                override fun onStopTrackingTouch(sb: SeekBar?) = Unit
+            })
+        }
+
+        row.addView(label)
+        row.addView(seekBar)
+        row.addView(valueTv)
+        return row
+    }
+
+    private fun createListaView(ctx: Context, item: ItemPainel.Lista): View {
+        val wrapper = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        val headerRow = createBaseRedBar(ctx)
+        val label = createBarTitle(ctx, "${item.nome} ▾")
+        val badge = createBarBadge(ctx, "◀ ${item.opcoes[item.indiceAtual]} ▶")
+
+        val dropdownBox = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setBackgroundResource(R.drawable.bg_list_dropdown)
+            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4))
+        }
+
+        val optionViews = mutableListOf<TextView>()
+
+        fun refreshSelectionUi() {
+            val selectedText = item.opcoes[item.indiceAtual]
+            badge.text = "◀ $selectedText ▶"
+            for ((optIdx, tv) in optionViews.withIndex()) {
+                val isSelected = optIdx == item.indiceAtual
+                tv.text = if (isSelected) "● ${item.opcoes[optIdx]}" else "  ${item.opcoes[optIdx]}"
+                tv.setTextColor(
+                    if (isSelected) Color.rgb(0xFF, 0x3B, 0x47) else Color.WHITE
+                )
+            }
+        }
+
+        for ((optIdx, optText) in item.opcoes.withIndex()) {
+            val optTv = TextView(ctx).apply {
+                text = optText
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
+                setBackgroundResource(R.drawable.bg_list_option_item)
+                isClickable = true
+                isFocusable = false
+                setOnClickListener {
+                    item.indiceAtual = optIdx
+                    refreshSelectionUi()
+                    dropdownBox.visibility = View.GONE
+                    safeExecute { item.aoSelecionar(this@FloatingWindowService, optIdx, optText) }
+                }
+            }
+            optionViews.add(optTv)
+            dropdownBox.addView(
+                optTv,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        refreshSelectionUi()
+
+        // Tocar no selo ◀ Opção ▶ alterna rapidamente para o próximo item
+        badge.isClickable = true
+        badge.setOnClickListener {
+            item.indiceAtual = (item.indiceAtual + 1) % item.opcoes.size
+            refreshSelectionUi()
+            val chosen = item.opcoes[item.indiceAtual]
+            safeExecute { item.aoSelecionar(this, item.indiceAtual, chosen) }
+        }
+
+        // Tocar na barra abre/fecha a lista completa de opções logo abaixo
+        headerRow.setOnClickListener {
+            dropdownBox.visibility =
+                if (dropdownBox.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+
+        headerRow.addView(label)
+        headerRow.addView(badge)
+
+        wrapper.addView(
+            headerRow,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(38)
+            )
+        )
+        wrapper.addView(
+            dropdownBox,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        return wrapper
+    }
+
+    private fun createInfoView(
+        ctx: Context,
+        nome: String,
+        valorInicial: String,
+        isTimer: Boolean
+    ): View {
+        val row = createBaseRedBar(ctx).apply {
+            isClickable = false
+        }
+        val label = createBarTitle(ctx, nome)
+        val badge = createBarBadge(ctx, valorInicial)
+        if (isTimer) {
+            timerTextViews.add(badge)
+        }
+        row.addView(label)
+        row.addView(badge)
+        return row
+    }
+
+    private fun createBaseRedBar(ctx: Context): LinearLayout {
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dpToPx(38)
+            setPadding(dpToPx(10), dpToPx(4), dpToPx(8), dpToPx(4))
+            setBackgroundResource(R.drawable.bg_red_bar)
+            isClickable = true
+            isFocusable = false
+        }
+    }
+
+    private fun createBarTitle(ctx: Context, title: String): TextView {
+        return TextView(ctx).apply {
+            text = title
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+    }
+
+    private fun createBarBadge(ctx: Context, label: String): TextView {
+        return TextView(ctx).apply {
+            text = label
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            setBackgroundResource(R.drawable.bg_state_badge_off)
+            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(2))
+        }
+    }
+
+    private inline fun safeExecute(block: () -> Unit) {
+        try {
+            block()
+        } catch (t: Throwable) {
+            aviso("Erro na ação: ${t.message ?: t.javaClass.simpleName}")
+        }
+    }
+
+    // =========================================================================
+    // Gerenciamento de Janelas (Painel + Bolha RX Sempre Visível)
+    // =========================================================================
+
     private fun ensureBothOverlaysAttached() {
         val pBinding = panelBinding ?: return
         val bBinding = bubbleBinding ?: return
+        val cView = crosshairView
 
+        if (cView != null && !isCrosshairAdded) {
+            cView.visibility = View.GONE
+            if (safeAddView(cView, crosshairParams)) {
+                isCrosshairAdded = true
+            }
+        }
         if (!isPanelAdded) {
             if (safeAddView(pBinding.root, panelParams)) {
                 isPanelAdded = true
@@ -409,7 +925,6 @@ class FloatingWindowService : Service() {
         pBinding.panelCard.alpha = panelAlpha
         safeUpdateView(pBinding.root, panelParams)
 
-        // Bolha continua visível na tela mesmo com o painel aberto
         bBinding.root.visibility = View.VISIBLE
         bBinding.viewBubbleDot.alpha = 1f
 
@@ -425,7 +940,6 @@ class FloatingWindowService : Service() {
 
         ensureBothOverlaysAttached()
 
-        // Esconde o painel instantaneamente sem remover a view, liberando 100% do toque da tela
         pBinding.root.visibility = View.GONE
         panelParams.width = 0
         panelParams.height = 0
@@ -440,37 +954,10 @@ class FloatingWindowService : Service() {
         updateNotification(OverlayState.HIDDEN_BUBBLE)
     }
 
-    private fun selectTab(tabIndex: Int) {
-        val pBinding = panelBinding ?: return
-        val tabs = listOf(pBinding.tabAim, pBinding.tabSensi, pBinding.tabScreen, pBinding.tabInfo)
-        val pages = listOf(pBinding.pageAim, pBinding.pageSensi, pBinding.pageScreen, pBinding.pageInfo)
-
-        for (i in tabs.indices) {
-            val active = (i == tabIndex)
-            tabs[i].setBackgroundResource(
-                if (active) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive
-            )
-            pages[i].visibility = if (active) View.VISIBLE else View.GONE
-        }
-    }
-
-    private fun applyToggleBarState(bar: View, badge: TextView, enabled: Boolean) {
-        bar.setBackgroundResource(
-            if (enabled) R.drawable.bg_red_bar_active else R.drawable.bg_red_bar
-        )
-        badge.setBackgroundResource(
-            if (enabled) R.drawable.bg_state_badge_on else R.drawable.bg_state_badge_off
-        )
-        badge.setText(if (enabled) R.string.state_on else R.string.state_off)
-        badge.setTextColor(
-            if (enabled) Color.rgb(0xD9, 0x06, 0x0E) else Color.WHITE
-        )
-    }
-
     private fun computeDefaultPositions(): Pair<Pair<Int, Int>, Pair<Int, Int>> {
         val (screenW, screenH) = getScreenBounds()
-        val estW = dpToPx(344)
-        val estH = dpToPx(235)
+        val estW = dpToPx(348)
+        val estH = dpToPx(240)
         val bubbleOuter = getBubbleOuterSizePx()
 
         val bubbleX = dpToPx(12)
@@ -486,60 +973,6 @@ class FloatingWindowService : Service() {
         val clampedPanel = clampToScreen(rawPanelX, rawPanelY, estW, estH)
         val clampedBubble = clampToScreen(bubbleX, bubbleY, bubbleOuter, bubbleOuter)
         return clampedPanel to clampedBubble
-    }
-
-    private fun centerAllOverlays() {
-        snapAnimator?.cancel()
-        val (defaultPanel, defaultBubble) = computeDefaultPositions()
-
-        bubbleParams.x = defaultBubble.first
-        bubbleParams.y = defaultBubble.second
-        if (isBubbleAdded) {
-            safeUpdateView(bubbleBinding?.root, bubbleParams)
-        }
-
-        panelParams.x = defaultPanel.first
-        panelParams.y = defaultPanel.second
-        if (isPanelAdded && currentState == OverlayState.EXPANDED) {
-            safeUpdateView(panelBinding?.root, panelParams)
-        }
-    }
-
-    private fun resetPanelDefaults() {
-        val pBinding = panelBinding ?: return
-
-        aimAssistEnabled = false
-        noRecoilEnabled = false
-        precisionEnabled = false
-        fastTouchEnabled = false
-        snapBubbleToEdge = false
-
-        applyToggleBarState(pBinding.barAimAssist, pBinding.badgeAimAssist, false)
-        applyToggleBarState(pBinding.barNoRecoil, pBinding.badgeNoRecoil, false)
-        applyToggleBarState(pBinding.barPrecision, pBinding.badgePrecision, false)
-        applyToggleBarState(pBinding.barFastTouch, pBinding.badgeFastTouch, false)
-        applyToggleBarState(pBinding.barSnapEdge, pBinding.badgeSnapEdge, false)
-
-        pBinding.seekSensiGeneral.progress = 165
-        pBinding.tvSensiGeneralVal.text = "165"
-        pBinding.seekSensiRedDot.progress = 150
-        pBinding.tvSensiRedDotVal.text = "150"
-
-        pBinding.seekOpacity.progress = 63
-        panelAlpha = 0.98f
-        pBinding.tvOpacityValue.text = "98%"
-        pBinding.panelCard.alpha = panelAlpha
-
-        pBinding.seekBubbleSize.progress = 10
-        bubbleSizeDp = 56
-        pBinding.tvBubbleSizeValue.text = "56dp"
-        applyBubbleSize(56)
-
-        sessionStartElapsed = SystemClock.elapsedRealtime()
-        pBinding.tvSessionTimer.text = "00:00"
-
-        selectTab(0)
-        centerAllOverlays()
     }
 
     private fun animateBubbleToNearestEdge(fromX: Int) {
@@ -591,13 +1024,21 @@ class FloatingWindowService : Service() {
         }
     }
 
+    private fun formatSessionTime(): String {
+        val elapsedSec = ((SystemClock.elapsedRealtime() - sessionStartElapsed) / 1000L)
+            .coerceAtLeast(0L)
+        val minutes = elapsedSec / 60L
+        val seconds = elapsedSec % 60L
+        return String.format(Locale.US, "%02d:%02d", minutes, seconds)
+    }
+
     private fun getPanelDimensions(): Pair<Int, Int> {
         val card = panelBinding?.panelCard
         val measuredW = card?.width ?: 0
         val measuredH = card?.height ?: 0
         val pad = dpToPx(8)
-        val w = if (measuredW > 0) measuredW + pad else dpToPx(344)
-        val h = if (measuredH > 0) measuredH + pad else dpToPx(235)
+        val w = if (measuredW > 0) measuredW + pad else dpToPx(348)
+        val h = if (measuredH > 0) measuredH + pad else dpToPx(240)
         return w to h
     }
 
@@ -655,6 +1096,10 @@ class FloatingWindowService : Service() {
     }
 
     private fun removeAllOverlays() {
+        if (isCrosshairAdded) {
+            safeRemoveView(crosshairView)
+            isCrosshairAdded = false
+        }
         if (isPanelAdded) {
             safeRemoveView(panelBinding?.root)
             isPanelAdded = false
