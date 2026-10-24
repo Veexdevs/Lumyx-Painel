@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -24,6 +25,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -54,10 +56,14 @@ class FloatingWindowService : Service() {
     private var isPanelAdded = false
     private var isBubbleAdded = false
 
+    private var aimAssistEnabled = false
+    private var noRecoilEnabled = false
+    private var precisionEnabled = false
+    private var fastTouchEnabled = false
     private var snapBubbleToEdge = false
-    private var isCompactMode = false
-    private var panelAlpha = 0.95f
-    private var bubbleSizeDp = 58
+
+    private var panelAlpha = 0.98f
+    private var bubbleSizeDp = 56
 
     private var snapAnimator: ValueAnimator? = null
     private var sessionStartElapsed = 0L
@@ -65,7 +71,7 @@ class FloatingWindowService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val timerRunnable = object : Runnable {
         override fun run() {
-            if (currentState == OverlayState.EXPANDED) {
+            if (currentState != OverlayState.CLOSED) {
                 val elapsedSec = ((SystemClock.elapsedRealtime() - sessionStartElapsed) / 1000L)
                     .coerceAtLeast(0L)
                 val minutes = elapsedSec / 60L
@@ -97,11 +103,7 @@ class FloatingWindowService : Service() {
 
         if (!Settings.canDrawOverlays(this)) {
             ensureForeground(OverlayState.CLOSED)
-            Toast.makeText(
-                this,
-                R.string.toast_perm_needed,
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(this, R.string.toast_perm_needed, Toast.LENGTH_SHORT).show()
             closeAllAndStop()
             return START_NOT_STICKY
         }
@@ -114,13 +116,13 @@ class FloatingWindowService : Service() {
 
             ACTION_HIDE -> {
                 ensureForeground(OverlayState.HIDDEN_BUBBLE)
-                hideToBubble()
+                hidePanelKeepBubble()
             }
 
             ACTION_TOGGLE -> {
                 if (currentState == OverlayState.EXPANDED) {
                     ensureForeground(OverlayState.HIDDEN_BUBBLE)
-                    hideToBubble()
+                    hidePanelKeepBubble()
                 } else {
                     ensureForeground(OverlayState.EXPANDED)
                     showExpandedPanel()
@@ -134,7 +136,7 @@ class FloatingWindowService : Service() {
                     OverlayState.EXPANDED
                 }
                 ensureForeground(activeState)
-                centerActiveOverlay()
+                centerAllOverlays()
             }
 
             ACTION_RESET -> {
@@ -160,7 +162,7 @@ class FloatingWindowService : Service() {
         super.onConfigurationChanged(newConfig)
         snapAnimator?.cancel()
         mainHandler.post {
-            if (isPanelAdded) {
+            if (isPanelAdded && currentState == OverlayState.EXPANDED) {
                 val (w, h) = getPanelDimensions()
                 val clamped = clampToScreen(panelParams.x, panelParams.y, w, h)
                 panelParams.x = clamped.first
@@ -202,11 +204,7 @@ class FloatingWindowService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        val (screenW, screenH) = getScreenBounds()
-        val initialPanelW = dpToPx(296)
-        val initialPanelH = dpToPx(370)
-        val startX = ((screenW - initialPanelW) / 2).coerceAtLeast(dpToPx(12))
-        val startY = ((screenH - initialPanelH) / 3).coerceAtLeast(dpToPx(44))
+        val (defaultPanelPos, defaultBubblePos) = computeDefaultPositions()
 
         panelParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -216,8 +214,8 @@ class FloatingWindowService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = startX
-            y = startY
+            x = defaultPanelPos.first
+            y = defaultPanelPos.second
         }
 
         bubbleParams = WindowManager.LayoutParams(
@@ -228,8 +226,8 @@ class FloatingWindowService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dpToPx(16)
-            y = startY
+            x = defaultBubblePos.first
+            y = defaultBubblePos.second
         }
 
         val pBinding = LayoutFloatingPanelBinding.inflate(inflater)
@@ -243,38 +241,70 @@ class FloatingWindowService : Service() {
         // Arraste livre da janela flutuante inteira
         pBinding.panelRoot.positionProvider = { panelParams.x to panelParams.y }
         pBinding.panelRoot.onDragMove = { rawTargetX, rawTargetY ->
-            val (w, h) = getPanelDimensions()
-            val clamped = clampToScreen(rawTargetX, rawTargetY, w, h)
-            panelParams.x = clamped.first
-            panelParams.y = clamped.second
-            safeUpdateView(pBinding.root, panelParams)
+            if (currentState == OverlayState.EXPANDED) {
+                val (w, h) = getPanelDimensions()
+                val clamped = clampToScreen(rawTargetX, rawTargetY, w, h)
+                panelParams.x = clamped.first
+                panelParams.y = clamped.second
+                safeUpdateView(pBinding.root, panelParams)
+            }
         }
 
-        // Botões Esconder (cabeçalho e rodapé)
-        val hideClickListener = View.OnClickListener {
-            hideToBubble()
+        // Botão [—]: Esconde instantaneamente o painel mantendo a bolha RX visível
+        pBinding.btnHeaderHide.setOnClickListener {
+            hidePanelKeepBubble()
         }
-        pBinding.btnHeaderHide.setOnClickListener(hideClickListener)
-        pBinding.btnHideWindow.setOnClickListener(hideClickListener)
 
-        // Botões Fechar (cabeçalho e rodapé)
-        val closeClickListener = View.OnClickListener {
+        // Botão [✕]: Fecha o painel e a bolha completamente
+        pBinding.btnHeaderClose.setOnClickListener {
             closeAllAndStop()
         }
-        pBinding.btnHeaderClose.setOnClickListener(closeClickListener)
-        pBinding.btnClosePanel.setOnClickListener(closeClickListener)
 
-        // Barra de Sensibilidade Redx (0 .. 200)
-        pBinding.seekSensitivity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        // Abas laterais (Mira, Sensi, Tela, Info)
+        pBinding.tabAim.setOnClickListener { selectTab(0) }
+        pBinding.tabSensi.setOnClickListener { selectTab(1) }
+        pBinding.tabScreen.setOnClickListener { selectTab(2) }
+        pBinding.tabInfo.setOnClickListener { selectTab(3) }
+
+        // Barras interativas da aba Mira
+        pBinding.barAimAssist.setOnClickListener {
+            aimAssistEnabled = !aimAssistEnabled
+            applyToggleBarState(pBinding.barAimAssist, pBinding.badgeAimAssist, aimAssistEnabled)
+        }
+        pBinding.barNoRecoil.setOnClickListener {
+            noRecoilEnabled = !noRecoilEnabled
+            applyToggleBarState(pBinding.barNoRecoil, pBinding.badgeNoRecoil, noRecoilEnabled)
+        }
+        pBinding.barPrecision.setOnClickListener {
+            precisionEnabled = !precisionEnabled
+            applyToggleBarState(pBinding.barPrecision, pBinding.badgePrecision, precisionEnabled)
+        }
+
+        // Barras interativas da aba Sensi
+        pBinding.seekSensiGeneral.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                pBinding.tvSensiValue.text = String.format(Locale.US, "%d", progress)
+                pBinding.tvSensiGeneralVal.text = String.format(Locale.US, "%d", progress)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        // Barra de Opacidade da Janela (35% .. 100%)
+        pBinding.seekSensiRedDot.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                pBinding.tvSensiRedDotVal.text = String.format(Locale.US, "%d", progress)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+
+        pBinding.barFastTouch.setOnClickListener {
+            fastTouchEnabled = !fastTouchEnabled
+            applyToggleBarState(pBinding.barFastTouch, pBinding.badgeFastTouch, fastTouchEnabled)
+        }
+
+        // Barras interativas da aba Tela (Opacidade, Tamanho da Bolha RX, Imã nas Bordas)
         pBinding.seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val pct = (35 + progress).coerceIn(35, 100)
@@ -287,7 +317,6 @@ class FloatingWindowService : Service() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        // Barra de Tamanho da Bolinha RX (46dp .. 78dp)
         pBinding.seekBubbleSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 bubbleSizeDp = (46 + progress).coerceIn(46, 78)
@@ -299,27 +328,23 @@ class FloatingWindowService : Service() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        // Imã nas bordas para a bolinha
-        pBinding.switchSnapEdge.setOnCheckedChangeListener { _, isChecked ->
-            snapBubbleToEdge = isChecked
-        }
-
-        // Modo compacto da janela flutuante
-        pBinding.switchCompact.setOnCheckedChangeListener { _, isChecked ->
-            isCompactMode = isChecked
-            pBinding.settingsContainer.visibility = if (isChecked) View.GONE else View.VISIBLE
-            pBinding.root.post {
-                if (isPanelAdded) {
-                    val (w, h) = getPanelDimensions()
-                    val clamped = clampToScreen(panelParams.x, panelParams.y, w, h)
-                    panelParams.x = clamped.first
-                    panelParams.y = clamped.second
-                    safeUpdateView(pBinding.root, panelParams)
-                }
+        pBinding.barSnapEdge.setOnClickListener {
+            snapBubbleToEdge = !snapBubbleToEdge
+            applyToggleBarState(pBinding.barSnapEdge, pBinding.badgeSnapEdge, snapBubbleToEdge)
+            if (snapBubbleToEdge && isBubbleAdded) {
+                animateBubbleToNearestEdge(bubbleParams.x)
             }
         }
 
-        // Arraste livre e clique da bolinha RX escondida
+        // Barras de ação da aba Info
+        pBinding.barCenterPanel.setOnClickListener {
+            centerAllOverlays()
+        }
+        pBinding.barResetAll.setOnClickListener {
+            resetPanelDefaults()
+        }
+
+        // Bolha RX sempre visível: arrastável + toque alterna abrir/esconder instantaneamente
         bBinding.bubbleRoot.positionProvider = { bubbleParams.x to bubbleParams.y }
         bBinding.bubbleRoot.onDragMove = { rawTargetX, rawTargetY ->
             snapAnimator?.cancel()
@@ -335,44 +360,58 @@ class FloatingWindowService : Service() {
             }
         }
         bBinding.bubbleRoot.setOnClickListener {
-            showExpandedPanel(fromBubble = true)
+            if (currentState == OverlayState.EXPANDED) {
+                hidePanelKeepBubble()
+            } else {
+                showExpandedPanel()
+            }
         }
     }
 
-    private fun showExpandedPanel(fromBubble: Boolean = false) {
+    /**
+     * Garante que o painel seja adicionado primeiro e a bolha RX por último,
+     * mantendo a bolha sempre visível e acima do painel (Z-order superior) para abrir/fechar rápido.
+     */
+    private fun ensureBothOverlaysAttached() {
         val pBinding = panelBinding ?: return
-        snapAnimator?.cancel()
-
-        val (w, h) = getPanelDimensions()
-        val sourceX = if (fromBubble) bubbleParams.x else panelParams.x
-        val sourceY = if (fromBubble) bubbleParams.y else panelParams.y
-        val clamped = clampToScreen(sourceX, sourceY, w, h)
-        panelParams.x = clamped.first
-        panelParams.y = clamped.second
-
-        if (isBubbleAdded) {
-            safeRemoveView(bubbleBinding?.root)
-            isBubbleAdded = false
-        }
+        val bBinding = bubbleBinding ?: return
 
         if (!isPanelAdded) {
-            pBinding.panelCard.animate().cancel()
-            pBinding.panelCard.scaleX = 0.88f
-            pBinding.panelCard.scaleY = 0.88f
-            pBinding.panelCard.alpha = 0f
             if (safeAddView(pBinding.root, panelParams)) {
                 isPanelAdded = true
-                pBinding.panelCard.animate()
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .alpha(panelAlpha)
-                    .setDuration(170L)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
+            }
+        }
+        if (!isBubbleAdded) {
+            bBinding.root.visibility = View.VISIBLE
+            if (safeAddView(bBinding.root, bubbleParams)) {
+                isBubbleAdded = true
             }
         } else {
-            safeUpdateView(pBinding.root, panelParams)
+            bBinding.root.visibility = View.VISIBLE
         }
+    }
+
+    private fun showExpandedPanel() {
+        val pBinding = panelBinding ?: return
+        val bBinding = bubbleBinding ?: return
+
+        val (w, h) = getPanelDimensions()
+        val clamped = clampToScreen(panelParams.x, panelParams.y, w, h)
+        panelParams.x = clamped.first
+        panelParams.y = clamped.second
+        panelParams.width = WindowManager.LayoutParams.WRAP_CONTENT
+        panelParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        panelParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+
+        ensureBothOverlaysAttached()
+
+        pBinding.root.visibility = View.VISIBLE
+        pBinding.panelCard.alpha = panelAlpha
+        safeUpdateView(pBinding.root, panelParams)
+
+        // Bolha continua visível na tela mesmo com o painel aberto
+        bBinding.root.visibility = View.VISIBLE
+        bBinding.viewBubbleDot.alpha = 1f
 
         updateState(OverlayState.EXPANDED)
         updateNotification(OverlayState.EXPANDED)
@@ -380,100 +419,127 @@ class FloatingWindowService : Service() {
         mainHandler.post(timerRunnable)
     }
 
-    private fun hideToBubble() {
+    private fun hidePanelKeepBubble() {
+        val pBinding = panelBinding ?: return
         val bBinding = bubbleBinding ?: return
-        mainHandler.removeCallbacks(timerRunnable)
 
-        val sizePx = getBubbleOuterSizePx()
-        val synced = clampToScreen(panelParams.x, panelParams.y, sizePx, sizePx)
-        bubbleParams.x = if (snapBubbleToEdge) {
-            computeNearestEdgeX(synced.first, sizePx)
-        } else {
-            synced.first
-        }
-        bubbleParams.y = synced.second
+        ensureBothOverlaysAttached()
 
-        if (isPanelAdded) {
-            safeRemoveView(panelBinding?.root)
-            isPanelAdded = false
-        }
+        // Esconde o painel instantaneamente sem remover a view, liberando 100% do toque da tela
+        pBinding.root.visibility = View.GONE
+        panelParams.width = 0
+        panelParams.height = 0
+        panelParams.flags =
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        safeUpdateView(pBinding.root, panelParams)
 
-        if (!isBubbleAdded) {
-            bBinding.bubbleContainer.animate().cancel()
-            bBinding.bubbleContainer.scaleX = 0.65f
-            bBinding.bubbleContainer.scaleY = 0.65f
-            bBinding.bubbleContainer.alpha = 0f
-            if (safeAddView(bBinding.root, bubbleParams)) {
-                isBubbleAdded = true
-                bBinding.bubbleContainer.animate()
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .alpha(1f)
-                    .setDuration(160L)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
-            }
-        } else {
-            safeUpdateView(bBinding.root, bubbleParams)
-        }
+        bBinding.root.visibility = View.VISIBLE
+        bBinding.viewBubbleDot.alpha = 0.75f
 
         updateState(OverlayState.HIDDEN_BUBBLE)
         updateNotification(OverlayState.HIDDEN_BUBBLE)
     }
 
-    private fun centerActiveOverlay() {
+    private fun selectTab(tabIndex: Int) {
+        val pBinding = panelBinding ?: return
+        val tabs = listOf(pBinding.tabAim, pBinding.tabSensi, pBinding.tabScreen, pBinding.tabInfo)
+        val pages = listOf(pBinding.pageAim, pBinding.pageSensi, pBinding.pageScreen, pBinding.pageInfo)
+
+        for (i in tabs.indices) {
+            val active = (i == tabIndex)
+            tabs[i].setBackgroundResource(
+                if (active) R.drawable.bg_tab_active else R.drawable.bg_tab_inactive
+            )
+            pages[i].visibility = if (active) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun applyToggleBarState(bar: View, badge: TextView, enabled: Boolean) {
+        bar.setBackgroundResource(
+            if (enabled) R.drawable.bg_red_bar_active else R.drawable.bg_red_bar
+        )
+        badge.setBackgroundResource(
+            if (enabled) R.drawable.bg_state_badge_on else R.drawable.bg_state_badge_off
+        )
+        badge.setText(if (enabled) R.string.state_on else R.string.state_off)
+        badge.setTextColor(
+            if (enabled) Color.rgb(0xD9, 0x06, 0x0E) else Color.WHITE
+        )
+    }
+
+    private fun computeDefaultPositions(): Pair<Pair<Int, Int>, Pair<Int, Int>> {
         val (screenW, screenH) = getScreenBounds()
-        if (isBubbleAdded) {
-            val sizePx = getBubbleOuterSizePx()
-            val clamped = clampToScreen(
-                (screenW - sizePx) / 2,
-                (screenH - sizePx) / 2,
-                sizePx,
-                sizePx
-            )
-            bubbleParams.x = clamped.first
-            bubbleParams.y = clamped.second
-            safeUpdateView(bubbleBinding?.root, bubbleParams)
+        val estW = dpToPx(344)
+        val estH = dpToPx(235)
+        val bubbleOuter = getBubbleOuterSizePx()
+
+        val bubbleX = dpToPx(12)
+        val bubbleY = dpToPx(44)
+
+        val rawPanelX = (screenW - estW) / 2
+        val rawPanelY = if (screenH > screenW) {
+            (bubbleY + bubbleOuter + dpToPx(12)).coerceAtLeast((screenH - estH) / 4)
         } else {
-            val (w, h) = getPanelDimensions()
-            val clamped = clampToScreen(
-                (screenW - w) / 2,
-                (screenH - h) / 3,
-                w,
-                h
-            )
-            panelParams.x = clamped.first
-            panelParams.y = clamped.second
-            if (isPanelAdded) {
-                safeUpdateView(panelBinding?.root, panelParams)
-            } else {
-                showExpandedPanel()
-            }
+            ((screenH - estH) / 2).coerceAtLeast(dpToPx(24))
+        }
+
+        val clampedPanel = clampToScreen(rawPanelX, rawPanelY, estW, estH)
+        val clampedBubble = clampToScreen(bubbleX, bubbleY, bubbleOuter, bubbleOuter)
+        return clampedPanel to clampedBubble
+    }
+
+    private fun centerAllOverlays() {
+        snapAnimator?.cancel()
+        val (defaultPanel, defaultBubble) = computeDefaultPositions()
+
+        bubbleParams.x = defaultBubble.first
+        bubbleParams.y = defaultBubble.second
+        if (isBubbleAdded) {
+            safeUpdateView(bubbleBinding?.root, bubbleParams)
+        }
+
+        panelParams.x = defaultPanel.first
+        panelParams.y = defaultPanel.second
+        if (isPanelAdded && currentState == OverlayState.EXPANDED) {
+            safeUpdateView(panelBinding?.root, panelParams)
         }
     }
 
     private fun resetPanelDefaults() {
         val pBinding = panelBinding ?: return
-        pBinding.switchAimAssist.isChecked = false
-        pBinding.switchFpsBoost.isChecked = false
-        pBinding.seekSensitivity.progress = 145
-        pBinding.tvSensiValue.text = "145"
-        pBinding.seekOpacity.progress = 60
-        panelAlpha = 0.95f
-        pBinding.tvOpacityValue.text = "95%"
-        pBinding.panelCard.alpha = panelAlpha
-        pBinding.seekBubbleSize.progress = 12
-        bubbleSizeDp = 58
-        pBinding.tvBubbleSizeValue.text = "58dp"
-        applyBubbleSize(58)
-        pBinding.switchSnapEdge.isChecked = false
+
+        aimAssistEnabled = false
+        noRecoilEnabled = false
+        precisionEnabled = false
+        fastTouchEnabled = false
         snapBubbleToEdge = false
-        pBinding.switchCompact.isChecked = false
-        isCompactMode = false
-        pBinding.settingsContainer.visibility = View.VISIBLE
+
+        applyToggleBarState(pBinding.barAimAssist, pBinding.badgeAimAssist, false)
+        applyToggleBarState(pBinding.barNoRecoil, pBinding.badgeNoRecoil, false)
+        applyToggleBarState(pBinding.barPrecision, pBinding.badgePrecision, false)
+        applyToggleBarState(pBinding.barFastTouch, pBinding.badgeFastTouch, false)
+        applyToggleBarState(pBinding.barSnapEdge, pBinding.badgeSnapEdge, false)
+
+        pBinding.seekSensiGeneral.progress = 165
+        pBinding.tvSensiGeneralVal.text = "165"
+        pBinding.seekSensiRedDot.progress = 150
+        pBinding.tvSensiRedDotVal.text = "150"
+
+        pBinding.seekOpacity.progress = 63
+        panelAlpha = 0.98f
+        pBinding.tvOpacityValue.text = "98%"
+        pBinding.panelCard.alpha = panelAlpha
+
+        pBinding.seekBubbleSize.progress = 10
+        bubbleSizeDp = 56
+        pBinding.tvBubbleSizeValue.text = "56dp"
+        applyBubbleSize(56)
+
         sessionStartElapsed = SystemClock.elapsedRealtime()
         pBinding.tvSessionTimer.text = "00:00"
-        centerActiveOverlay()
+
+        selectTab(0)
+        centerAllOverlays()
     }
 
     private fun animateBubbleToNearestEdge(fromX: Int) {
@@ -484,7 +550,7 @@ class FloatingWindowService : Service() {
 
         snapAnimator?.cancel()
         snapAnimator = ValueAnimator.ofInt(fromX, targetX).apply {
-            duration = 180L
+            duration = 160L
             interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 if (isBubbleAdded) {
@@ -526,17 +592,12 @@ class FloatingWindowService : Service() {
     }
 
     private fun getPanelDimensions(): Pair<Int, Int> {
-        val root = panelBinding?.root
-        val measuredW = root?.width ?: 0
-        val measuredH = root?.height ?: 0
-        val w = if (measuredW > 0) measuredW else dpToPx(296)
-        val h = if (measuredH > 0) {
-            measuredH
-        } else if (isCompactMode) {
-            dpToPx(170)
-        } else {
-            dpToPx(380)
-        }
+        val card = panelBinding?.panelCard
+        val measuredW = card?.width ?: 0
+        val measuredH = card?.height ?: 0
+        val pad = dpToPx(8)
+        val w = if (measuredW > 0) measuredW + pad else dpToPx(344)
+        val h = if (measuredH > 0) measuredH + pad else dpToPx(235)
         return w to h
     }
 

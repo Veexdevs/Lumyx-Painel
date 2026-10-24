@@ -37,25 +37,40 @@
     <string name="toast_panel_reset">Configurações do painel resetadas</string>
     <string name="toast_version_info">Redx Painel • Versão 1.0.0</string>
 
-    <!-- Janela Flutuante (Redx Painel) -->
-    <string name="panel_drag_hint">Arraste para mover</string>
-    <string name="panel_status_active">● Painel ativo • Tudo arrastável</string>
-    <string name="panel_aim_assist">Estabilizar Mira</string>
-    <string name="panel_fps_boost">Otimizar Resposta Touch</string>
-    <string name="panel_sensi_label">Sensibilidade Redx</string>
-    <string name="panel_opacity_label">Opacidade da janela</string>
-    <string name="panel_bubble_size_label">Tamanho da bolinha</string>
-    <string name="panel_snap_edge">Imã nas bordas (bolinha)</string>
-    <string name="panel_compact_mode">Modo compacto</string>
-    <string name="panel_action_hide">Esconder</string>
-    <string name="panel_action_close">Fechar</string>
-    <string name="bubble_show_desc">Mostrar Redx Painel novamente</string>
+    <!-- Cabeçalho da Janela Flutuante -->
+    <string name="panel_header_title">Redx Painel • Hack FF</string>
+    <string name="panel_header_version">Versão 1.0.0</string>
+    <string name="panel_action_hide">Esconder painel</string>
+    <string name="panel_action_close">Fechar painel</string>
+    <string name="bubble_toggle_desc">Abrir ou esconder Redx Painel rapidamente</string>
+
+    <!-- Abas Laterais -->
+    <string name="tab_aim">Mira</string>
+    <string name="tab_sensi">Sensi</string>
+    <string name="tab_screen">Tela</string>
+    <string name="tab_info">Info</string>
+
+    <!-- Opções nas Barras Vermelhas -->
+    <string name="opt_aim_assist">Auxílio de Mira</string>
+    <string name="opt_no_recoil">Estabilizar Recuo</string>
+    <string name="opt_precision">Precisão Fina</string>
+    <string name="opt_sensi_general">Geral</string>
+    <string name="opt_sensi_reddot">Red Dot</string>
+    <string name="opt_fast_touch">Touch Rápido 120Hz</string>
+    <string name="opt_opacity">Opacidade</string>
+    <string name="opt_bubble_size">Bolha</string>
+    <string name="opt_snap_edge">Imã nas Bordas</string>
+    <string name="opt_active_time">Tempo Ativo</string>
+    <string name="opt_center_panel">Centralizar Painel</string>
+    <string name="opt_reset_all">Resetar Opções</string>
+    <string name="state_off">OFF</string>
+    <string name="state_on">ON</string>
 
     <!-- Notificação -->
     <string name="notif_channel_name">Serviço Redx Painel</string>
     <string name="notif_title">Redx Painel Ativo</string>
-    <string name="notif_body_expanded">Janela flutuante aberta • Tudo arrastável</string>
-    <string name="notif_body_hidden">Janela escondida • Toque na bolinha RX para abrir</string>
+    <string name="notif_body_expanded">Painel e bolha RX ativos na tela</string>
+    <string name="notif_body_hidden">Painel escondido • Toque na bolha RX para abrir</string>
     <string name="notif_action_hide">Esconder</string>
     <string name="notif_action_show">Mostrar</string>
     <string name="notif_action_close">Fechar</string>
