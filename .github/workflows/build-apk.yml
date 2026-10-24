@@ -19,16 +19,16 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: Configurar Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.7'
 
@@ -45,7 +45,7 @@ jobs:
             -keypass lumyx123456 \
             -dname "CN=Lumyx Painel, OU=Mobile, O=Veexdevs, L=Sao Paulo, ST=SP, C=BR"
 
-      - name: Compilar APK Assinado
+      - name: Compilar e Verificar APK Assinado
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/lumyx-release.jks
           KEYSTORE_PASSWORD: lumyx123456
@@ -55,10 +55,12 @@ jobs:
           gradle assembleRelease assembleDebug --no-daemon --stacktrace
           mkdir -p apk-output
           cp app/build/outputs/apk/release/app-release.apk apk-output/Lumyx-Painel.apk
+          APKSIGNER=$(ls -1 "${ANDROID_HOME}"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "${APKSIGNER}" verify --verbose apk-output/Lumyx-Painel.apk
           ls -lh apk-output/
 
       - name: Publicar APK nos Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Lumyx-Painel-APK
           path: apk-output/Lumyx-Painel.apk
@@ -66,7 +68,7 @@ jobs:
 
       - name: Publicar APK em Releases (branch main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v1.0.0
           name: Lumyx Painel APK
