@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Clean monochrome RX / R mark for status bar notification -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M3,5L6,8H13.5C14.6,8 15.5,8.9 15.5,10C15.5,11.1 14.6,12 13.5,12H6V20L10.5,15.5L8.5,13.5H13.8C16.6,13.5 18.8,11.5 18.8,9.2C18.8,6.8 16.6,5 13.8,5H3ZM14.5,13.5L17,16L21.5,9L16,12L14.5,13.5ZM11.5,14.5L15,18L11,21L16,19L19,22H21.5L17,17.2L20.5,14H18L15.8,16L14,14.5H11.5Z" />
+</vector>

@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -19,19 +18,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var openAfterPermissionGrant = false
 
-    private val overlayStateListener: (FloatingWindowService.OverlayState) -> Unit = { state ->
-        runOnUiThread {
-            renderOverlayState(state)
-        }
-    }
-
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        refreshPermissionUi()
         if (Settings.canDrawOverlays(this) && openAfterPermissionGrant) {
             openAfterPermissionGrant = false
             FloatingWindowService.open(this)
+            Toast.makeText(this, R.string.toast_panel_activated, Toast.LENGTH_SHORT).show()
         } else {
             openAfterPermissionGrant = false
         }
@@ -40,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
-        // Permissão opcional no Android 13+; serviço funciona normalmente de qualquer forma
+        // Permissão opcional no Android 13+
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,130 +41,99 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        applyRedxVisualTheme()
         requestNotificationPermissionIfNeeded()
         setupClickListeners()
-        refreshPermissionUi()
-        renderOverlayState(FloatingWindowService.currentState)
     }
 
-    override fun onStart() {
-        super.onStart()
-        FloatingWindowService.addStateListener(overlayStateListener)
-    }
+    private fun applyRedxVisualTheme() {
+        val density = resources.displayMetrics.density
+        binding.mainScrollRoot.background = RedxUiDrawables.createScreenBackground()
 
-    override fun onResume() {
-        super.onResume()
-        refreshPermissionUi()
-    }
-
-    override fun onStop() {
-        FloatingWindowService.removeStateListener(overlayStateListener)
-        super.onStop()
+        val pillButtons = listOf(
+            binding.btnOverlayPermission,
+            binding.btnActivatePanel,
+            binding.btnDeactivatePanel,
+            binding.btnResetPosition,
+            binding.btnResetPanel,
+            binding.btnVersionInfo,
+            binding.btnDiscordLink,
+            binding.btnTiktokLink,
+            binding.btnYoutubeLink
+        )
+        for (pill in pillButtons) {
+            pill.background = RedxUiDrawables.createPillButtonBackground(density)
+        }
     }
 
     private fun setupClickListeners() {
-        binding.btnGrantPermission.setOnClickListener {
+        binding.btnOverlayPermission.setOnClickListener {
             openAfterPermissionGrant = false
-            launchOverlayPermissionSettings()
-        }
-
-        binding.btnOpenWindow.setOnClickListener {
-            if (!Settings.canDrawOverlays(this)) {
-                openAfterPermissionGrant = true
+            if (Settings.canDrawOverlays(this)) {
                 Toast.makeText(
                     this,
-                    R.string.perm_missing,
-                    Toast.LENGTH_LONG
+                    R.string.toast_perm_already_granted,
+                    Toast.LENGTH_SHORT
                 ).show()
+            } else {
+                launchOverlayPermissionSettings()
+            }
+        }
+
+        binding.btnOverlayPermission.setOnLongClickListener {
+            openAfterPermissionGrant = false
+            launchOverlayPermissionSettings()
+            true
+        }
+
+        binding.btnActivatePanel.setOnClickListener {
+            if (!Settings.canDrawOverlays(this)) {
+                openAfterPermissionGrant = true
+                Toast.makeText(this, R.string.toast_perm_needed, Toast.LENGTH_LONG).show()
                 launchOverlayPermissionSettings()
                 return@setOnClickListener
             }
             FloatingWindowService.open(this)
+            Toast.makeText(this, R.string.toast_panel_activated, Toast.LENGTH_SHORT).show()
         }
 
-        binding.btnToggleHide.setOnClickListener {
+        binding.btnDeactivatePanel.setOnClickListener {
+            FloatingWindowService.close(this)
+            Toast.makeText(this, R.string.toast_panel_deactivated, Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnResetPosition.setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
                 openAfterPermissionGrant = true
+                Toast.makeText(this, R.string.toast_perm_needed, Toast.LENGTH_LONG).show()
                 launchOverlayPermissionSettings()
                 return@setOnClickListener
             }
-            FloatingWindowService.toggle(this)
-        }
-
-        binding.btnCenterWindow.setOnClickListener {
             if (FloatingWindowService.currentState != FloatingWindowService.OverlayState.CLOSED) {
                 FloatingWindowService.center(this)
             }
+            Toast.makeText(this, R.string.toast_position_reset, Toast.LENGTH_SHORT).show()
         }
 
-        binding.btnCloseWindow.setOnClickListener {
-            FloatingWindowService.close(this)
+        binding.btnResetPanel.setOnClickListener {
+            FloatingWindowService.reset(this)
+            Toast.makeText(this, R.string.toast_panel_reset, Toast.LENGTH_SHORT).show()
         }
-    }
 
-    private fun refreshPermissionUi() {
-        val granted = Settings.canDrawOverlays(this)
-        if (granted) {
-            binding.tvPermissionState.setText(R.string.perm_granted)
-            binding.tvPermissionState.setTextColor(
-                ContextCompat.getColor(this, R.color.lumyx_success)
-            )
-            binding.btnGrantPermission.visibility = View.GONE
-        } else {
-            binding.tvPermissionState.setText(R.string.perm_missing)
-            binding.tvPermissionState.setTextColor(
-                ContextCompat.getColor(this, R.color.lumyx_warning)
-            )
-            binding.btnGrantPermission.visibility = View.VISIBLE
+        binding.btnVersionInfo.setOnClickListener {
+            Toast.makeText(this, R.string.toast_version_info, Toast.LENGTH_SHORT).show()
         }
-    }
 
-    private fun renderOverlayState(state: FloatingWindowService.OverlayState) {
-        when (state) {
-            FloatingWindowService.OverlayState.CLOSED -> {
-                binding.tvStatusBadge.setText(R.string.status_closed)
-                binding.tvStatusBadge.setTextColor(
-                    ContextCompat.getColor(this, R.color.text_secondary)
-                )
-                binding.btnToggleHide.setText(R.string.btn_hide_window)
-                binding.btnToggleHide.setIconResource(R.drawable.ic_visibility_off)
-                binding.btnToggleHide.isEnabled = false
-                binding.btnToggleHide.alpha = 0.5f
-                binding.btnCenterWindow.isEnabled = false
-                binding.btnCenterWindow.alpha = 0.5f
-                binding.btnCloseWindow.isEnabled = false
-                binding.btnCloseWindow.alpha = 0.5f
-            }
+        binding.btnDiscordLink.setOnClickListener {
+            openExternalUrl(getString(R.string.url_discord))
+        }
 
-            FloatingWindowService.OverlayState.EXPANDED -> {
-                binding.tvStatusBadge.setText(R.string.status_open)
-                binding.tvStatusBadge.setTextColor(
-                    ContextCompat.getColor(this, R.color.lumyx_success)
-                )
-                binding.btnToggleHide.setText(R.string.btn_hide_window)
-                binding.btnToggleHide.setIconResource(R.drawable.ic_visibility_off)
-                binding.btnToggleHide.isEnabled = true
-                binding.btnToggleHide.alpha = 1f
-                binding.btnCenterWindow.isEnabled = true
-                binding.btnCenterWindow.alpha = 1f
-                binding.btnCloseWindow.isEnabled = true
-                binding.btnCloseWindow.alpha = 1f
-            }
+        binding.btnTiktokLink.setOnClickListener {
+            openExternalUrl(getString(R.string.url_tiktok))
+        }
 
-            FloatingWindowService.OverlayState.HIDDEN_BUBBLE -> {
-                binding.tvStatusBadge.setText(R.string.status_hidden)
-                binding.tvStatusBadge.setTextColor(
-                    ContextCompat.getColor(this, R.color.lumyx_accent)
-                )
-                binding.btnToggleHide.setText(R.string.btn_show_window)
-                binding.btnToggleHide.setIconResource(R.drawable.ic_visibility_on)
-                binding.btnToggleHide.isEnabled = true
-                binding.btnToggleHide.alpha = 1f
-                binding.btnCenterWindow.isEnabled = true
-                binding.btnCenterWindow.alpha = 1f
-                binding.btnCloseWindow.isEnabled = true
-                binding.btnCloseWindow.alpha = 1f
-            }
+        binding.btnYoutubeLink.setOnClickListener {
+            openExternalUrl(getString(R.string.url_youtube))
         }
     }
 
@@ -184,6 +146,15 @@ class MainActivity : AppCompatActivity() {
             overlayPermissionLauncher.launch(intent)
         } catch (_: Exception) {
             overlayPermissionLauncher.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        }
+    }
+
+    private fun openExternalUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, url, Toast.LENGTH_SHORT).show()
         }
     }
 

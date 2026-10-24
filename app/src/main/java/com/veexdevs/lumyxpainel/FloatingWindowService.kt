@@ -99,7 +99,7 @@ class FloatingWindowService : Service() {
             ensureForeground(OverlayState.CLOSED)
             Toast.makeText(
                 this,
-                R.string.perm_missing,
+                R.string.toast_perm_needed,
                 Toast.LENGTH_SHORT
             ).show()
             closeAllAndStop()
@@ -128,14 +128,23 @@ class FloatingWindowService : Service() {
             }
 
             ACTION_CENTER -> {
-                ensureForeground(
-                    if (currentState == OverlayState.HIDDEN_BUBBLE) {
-                        OverlayState.HIDDEN_BUBBLE
-                    } else {
-                        OverlayState.EXPANDED
-                    }
-                )
+                val activeState = if (currentState == OverlayState.HIDDEN_BUBBLE) {
+                    OverlayState.HIDDEN_BUBBLE
+                } else {
+                    OverlayState.EXPANDED
+                }
+                ensureForeground(activeState)
                 centerActiveOverlay()
+            }
+
+            ACTION_RESET -> {
+                val activeState = if (currentState == OverlayState.HIDDEN_BUBBLE) {
+                    OverlayState.HIDDEN_BUBBLE
+                } else {
+                    OverlayState.EXPANDED
+                }
+                ensureForeground(activeState)
+                resetPanelDefaults()
             }
 
             else -> {
@@ -194,10 +203,10 @@ class FloatingWindowService : Service() {
         }
 
         val (screenW, screenH) = getScreenBounds()
-        val initialPanelW = dpToPx(292)
-        val initialPanelH = dpToPx(290)
+        val initialPanelW = dpToPx(296)
+        val initialPanelH = dpToPx(370)
         val startX = ((screenW - initialPanelW) / 2).coerceAtLeast(dpToPx(12))
-        val startY = ((screenH - initialPanelH) / 3).coerceAtLeast(dpToPx(48))
+        val startY = ((screenH - initialPanelH) / 3).coerceAtLeast(dpToPx(44))
 
         panelParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -231,7 +240,7 @@ class FloatingWindowService : Service() {
         pBinding.panelCard.alpha = panelAlpha
         applyBubbleSize(bubbleSizeDp)
 
-        // Configurar arraste completo da janela flutuante
+        // Arraste livre da janela flutuante inteira
         pBinding.panelRoot.positionProvider = { panelParams.x to panelParams.y }
         pBinding.panelRoot.onDragMove = { rawTargetX, rawTargetY ->
             val (w, h) = getPanelDimensions()
@@ -241,21 +250,31 @@ class FloatingWindowService : Service() {
             safeUpdateView(pBinding.root, panelParams)
         }
 
-        // Botões para esconder a janela flutuante (cabeçalho e rodapé)
+        // Botões Esconder (cabeçalho e rodapé)
         val hideClickListener = View.OnClickListener {
             hideToBubble()
         }
         pBinding.btnHeaderHide.setOnClickListener(hideClickListener)
         pBinding.btnHideWindow.setOnClickListener(hideClickListener)
 
-        // Botões para fechar a janela flutuante (cabeçalho e rodapé)
+        // Botões Fechar (cabeçalho e rodapé)
         val closeClickListener = View.OnClickListener {
             closeAllAndStop()
         }
         pBinding.btnHeaderClose.setOnClickListener(closeClickListener)
         pBinding.btnClosePanel.setOnClickListener(closeClickListener)
 
-        // Controle de opacidade da janela flutuante (35% .. 100%)
+        // Barra de Sensibilidade Redx (0 .. 200)
+        pBinding.seekSensitivity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                pBinding.tvSensiValue.text = String.format(Locale.US, "%d", progress)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+
+        // Barra de Opacidade da Janela (35% .. 100%)
         pBinding.seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val pct = (35 + progress).coerceIn(35, 100)
@@ -268,7 +287,7 @@ class FloatingWindowService : Service() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        // Controle de tamanho da bolinha flutuante (46dp .. 78dp)
+        // Barra de Tamanho da Bolinha RX (46dp .. 78dp)
         pBinding.seekBubbleSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 bubbleSizeDp = (46 + progress).coerceIn(46, 78)
@@ -280,7 +299,7 @@ class FloatingWindowService : Service() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        // Imã opcional nas bordas para a bolinha
+        // Imã nas bordas para a bolinha
         pBinding.switchSnapEdge.setOnCheckedChangeListener { _, isChecked ->
             snapBubbleToEdge = isChecked
         }
@@ -300,7 +319,7 @@ class FloatingWindowService : Service() {
             }
         }
 
-        // Configurar arraste completo e toque da bolinha escondida
+        // Arraste livre e clique da bolinha RX escondida
         bBinding.bubbleRoot.positionProvider = { bubbleParams.x to bubbleParams.y }
         bBinding.bubbleRoot.onDragMove = { rawTargetX, rawTargetY ->
             snapAnimator?.cancel()
@@ -324,17 +343,12 @@ class FloatingWindowService : Service() {
         val pBinding = panelBinding ?: return
         snapAnimator?.cancel()
 
-        if (fromBubble) {
-            val (w, h) = getPanelDimensions()
-            val clamped = clampToScreen(bubbleParams.x, bubbleParams.y, w, h)
-            panelParams.x = clamped.first
-            panelParams.y = clamped.second
-        } else {
-            val (w, h) = getPanelDimensions()
-            val clamped = clampToScreen(panelParams.x, panelParams.y, w, h)
-            panelParams.x = clamped.first
-            panelParams.y = clamped.second
-        }
+        val (w, h) = getPanelDimensions()
+        val sourceX = if (fromBubble) bubbleParams.x else panelParams.x
+        val sourceY = if (fromBubble) bubbleParams.y else panelParams.y
+        val clamped = clampToScreen(sourceX, sourceY, w, h)
+        panelParams.x = clamped.first
+        panelParams.y = clamped.second
 
         if (isBubbleAdded) {
             safeRemoveView(bubbleBinding?.root)
@@ -438,6 +452,30 @@ class FloatingWindowService : Service() {
         }
     }
 
+    private fun resetPanelDefaults() {
+        val pBinding = panelBinding ?: return
+        pBinding.switchAimAssist.isChecked = false
+        pBinding.switchFpsBoost.isChecked = false
+        pBinding.seekSensitivity.progress = 145
+        pBinding.tvSensiValue.text = "145"
+        pBinding.seekOpacity.progress = 60
+        panelAlpha = 0.95f
+        pBinding.tvOpacityValue.text = "95%"
+        pBinding.panelCard.alpha = panelAlpha
+        pBinding.seekBubbleSize.progress = 12
+        bubbleSizeDp = 58
+        pBinding.tvBubbleSizeValue.text = "58dp"
+        applyBubbleSize(58)
+        pBinding.switchSnapEdge.isChecked = false
+        snapBubbleToEdge = false
+        pBinding.switchCompact.isChecked = false
+        isCompactMode = false
+        pBinding.settingsContainer.visibility = View.VISIBLE
+        sessionStartElapsed = SystemClock.elapsedRealtime()
+        pBinding.tvSessionTimer.text = "00:00"
+        centerActiveOverlay()
+    }
+
     private fun animateBubbleToNearestEdge(fromX: Int) {
         val bBinding = bubbleBinding ?: return
         val sizePx = getBubbleOuterSizePx()
@@ -476,7 +514,7 @@ class FloatingWindowService : Service() {
         lp.height = px
         bBinding.bubbleContainer.layoutParams = lp
 
-        val iconPx = (px * 0.48f).roundToInt()
+        val iconPx = (px * 0.62f).roundToInt()
         val iconLp = bBinding.ivBubbleIcon.layoutParams
         iconLp.width = iconPx
         iconLp.height = iconPx
@@ -491,13 +529,13 @@ class FloatingWindowService : Service() {
         val root = panelBinding?.root
         val measuredW = root?.width ?: 0
         val measuredH = root?.height ?: 0
-        val w = if (measuredW > 0) measuredW else dpToPx(292)
+        val w = if (measuredW > 0) measuredW else dpToPx(296)
         val h = if (measuredH > 0) {
             measuredH
         } else if (isCompactMode) {
-            dpToPx(165)
+            dpToPx(170)
         } else {
-            dpToPx(310)
+            dpToPx(380)
         }
         return w to h
     }
@@ -632,7 +670,7 @@ class FloatingWindowService : Service() {
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_lumyx_logo)
+            .setSmallIcon(R.drawable.ic_stat_redx)
             .setContentTitle(getString(R.string.notif_title))
             .setContentText(bodyText)
             .setContentIntent(openAppPending)
@@ -662,7 +700,7 @@ class FloatingWindowService : Service() {
         try {
             notificationManager.notify(NOTIFICATION_ID, buildNotification(state))
         } catch (_: SecurityException) {
-            // Usuário pode ter desativado notificações no Android 13+; overlay continua ativo
+            // Permissão de notificação opcional no Android 13+
         }
     }
 
@@ -671,7 +709,7 @@ class FloatingWindowService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "lumyx_overlay_channel"
+        private const val CHANNEL_ID = "redx_overlay_channel"
         private const val NOTIFICATION_ID = 4010
 
         const val ACTION_OPEN = "com.veexdevs.lumyxpainel.ACTION_OPEN"
@@ -679,6 +717,7 @@ class FloatingWindowService : Service() {
         const val ACTION_SHOW = "com.veexdevs.lumyxpainel.ACTION_SHOW"
         const val ACTION_TOGGLE = "com.veexdevs.lumyxpainel.ACTION_TOGGLE"
         const val ACTION_CENTER = "com.veexdevs.lumyxpainel.ACTION_CENTER"
+        const val ACTION_RESET = "com.veexdevs.lumyxpainel.ACTION_RESET"
         const val ACTION_CLOSE = "com.veexdevs.lumyxpainel.ACTION_CLOSE"
 
         @Volatile
@@ -708,6 +747,14 @@ class FloatingWindowService : Service() {
         fun hide(context: Context) = dispatch(context, ACTION_HIDE)
         fun toggle(context: Context) = dispatch(context, ACTION_TOGGLE)
         fun center(context: Context) = dispatch(context, ACTION_CENTER)
+
+        fun reset(context: Context) {
+            if (currentState == OverlayState.CLOSED) return
+            val intent = Intent(context, FloatingWindowService::class.java).apply {
+                action = ACTION_RESET
+            }
+            context.startService(intent)
+        }
 
         fun close(context: Context) {
             if (currentState == OverlayState.CLOSED) return
